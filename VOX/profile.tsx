@@ -13,9 +13,11 @@ import {
  } from 'react-native';
  import SetRangeScreen from './setrange';
  import styles, {pitchBoxWidth} from './UI/styles';
- import { Pitch, Pitches } from './API/pitch';
+ import {Pitch} from './API/pitch';
+ import {Pitches} from './API/pitches';
  import Dropdown from './UI/dropdown';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Range_Class } from './API/ranges';
 
 interface ProfileProps{
   done: () => void;
@@ -35,7 +37,7 @@ export class Profile {
   }
 
   public setClass(high:Pitch, low:Pitch){
-    this.range_class = Pitches.classify(high, low).name;
+    this.range_class = Range_Class.classify(high, low).name;
   }
 
   public RetreiveProfile = async () => {

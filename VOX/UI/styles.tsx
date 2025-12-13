@@ -4,9 +4,9 @@
  * August 2025
 **/
 
-import { StyleSheet, Dimensions } from 'react-native';
+import {StyleSheet, Dimensions} from 'react-native';
 
-const { width, height } = Dimensions.get('window');
+const {width, height} = Dimensions.get('window');
 export const pitchBoxHeight = height - (height/3)
 export const heightRange = pitchBoxHeight - 7;
 export const pitchBoxWidth = width - 20;

@@ -21,13 +21,14 @@ import {
   TouchableOpacity,
  } from 'react-native';
 import { PitchDetector } from 'react-native-pitch-detector';
-import { Pitches } from './API/pitch';
+import { Pitches } from './API/pitches';
 import {Grade} from './API/grade';
 import { Profile } from './profile';
 import styles from './UI/styles';
 import BackButton from './UI/backButton';
 
 import Sound from 'react-native-sound';
+import { Range_Class } from './API/ranges';
 
  interface setRangeScreenProps {
   onBack: () => void;
@@ -81,7 +82,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
     }else if(!increasing && pivot){
       let high = Pitches.noteToPitch(high_max);
       let low = Pitches.noteToPitch(low_max);
-      setMessage("Congrats, you're a "+Pitches.classify(high, low));
+      setMessage("Congrats, you're a "+Range_Class.classify(high, low));
       //TODO Save range to profile.
       // end activity. 
     }
