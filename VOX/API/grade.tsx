@@ -2,7 +2,8 @@
  * A place to develop scoring/grading methods
  * @author Sky Vercauteren 
 */
-import { Pitch, Pitches } from './pitch';
+import { Pitch } from './pitch';
+import { Pitches } from './pitches';
 
 export class Grade{
     public static grade(expected: number, current: number){

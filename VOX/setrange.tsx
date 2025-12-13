@@ -48,6 +48,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
   const [increasing, setIncreasing] = useState(true);
   const [message, setMessage] = useState('');
   const [avgGrade, setAvgGrade] = useState(0.0);
+  const [tonality, setTonality] = useState(0);
   const [listening, setListening] = useState(false);
   
   Sound.setCategory('Playback');
@@ -113,17 +114,18 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
       const timerId = setTimeout(() => {
           setListening(false);
 
-          //woah, so apparently there is an internal promise to force the most current version through the setter, so I can read it from the setter, then set it to the same value without changing it. 
+          //woah, so apparently there is an internal promise to force the most current version of a hook through the setter, so I can read it from the setter, then set it to the same value without changing it. 
           setAvgGrade(latestAvgGrade => {
               if (latestAvgGrade >= 70) { 
-                  setMessage("Your got "+ latestAvgGrade.toFixed(2) + "! Great job, lets increment the pitch!")
-                  nextPitch(false);
+                  pass(latestAvgGrade)
               } else if(failCount >=3){
-                setMessage("Ok that must be your highest note, lets go the other way.");
-                nextPitch(true);
+                  pivot();
               } else {
-                  setMessage("Your grade was "+ latestAvgGrade.toFixed(2) + ", hmmm keep working at it!")
-                  setFailCount(failCount+1);
+                  // if you are sharp on the way up, or flat on the way down, its a pass.
+                  if ((increasing && tonality == 1) || (!increasing && tonality == -1)) {
+                    pass(latestAvgGrade);
+                  }
+                  fail(latestAvgGrade);
               }
               // We return the same value because we just wanted to read it, not change it.
               return latestAvgGrade; 
@@ -133,6 +135,20 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
     return () => clearTimeout(timerId);
   }, [setListening, setAvgGrade, failCount]);
 
+  function pass(latestAvgGrade: number){
+    setMessage("Your got "+ latestAvgGrade.toFixed(2) + "! Great job, lets adjust the pitch!")
+    nextPitch(false);
+  }
+
+  function pivot(){ 
+    setMessage("Ok that must be the edge of your range, lets go the other way.");
+    nextPitch(true);
+  }
+
+  function fail(latestAvgGrade: number){  
+    setMessage("Your grade was "+ latestAvgGrade.toFixed(2) + ", hmmm keep working at it!")
+    setFailCount(failCount+1);
+  }
 
   //playback effect
   useEffect(() =>{
@@ -152,10 +168,13 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
         subscription = PitchDetector.addListener((value: { frequency: number, tone: string}) => {
           setHz(value.frequency); // the fqz of what you are singing
           setNote(value.tone);    // the name of the pitch you are singing. 
-          let current = Grade.grade(expected.frequency, value.frequency)
+          let current = Grade.grade(expected.frequency, value.frequency);
+          let tone = (value.frequency < expected.frequency)?-1:0;
+          tone = (value.frequency > expected.frequency)?1:tone;
+          tone = (value.frequency == expected.frequency)?0:tone;
+          setTonality(tone);
           setAvgGrade((grade + current) / 2);
           setGrade(current);
-
       });
         console.log("Pitch detection started.");
       } catch (e) {
