@@ -97,8 +97,8 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
         if (!startPitch || !endPitch) return []; 
         
         return Pitches.allPitches.slice(
-            Pitches.allPitches.findIndex(p => p.note === startPitch.note),
-            Pitches.allPitches.findIndex(p => p.note === endPitch.note) + 1
+            Pitches.allPitches.findIndex(p => p.name === startPitch.name),
+            Pitches.allPitches.findIndex(p => p.name === endPitch.name) + 1
         );
     }, [startPitch, endPitch]);
 
@@ -117,7 +117,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
         <View style={styles.pitchBox}>
           {
             userRange.map((pitchObject,index) => (
-              <View key={pitchObject.note} style={[styles.pitchGrid, {top:heightRange - Pitches.fqzToPosition(pitchObject.frequency)}]}></View>
+              <View key={pitchObject.name} style={[styles.pitchGrid, {top:heightRange - Pitches.fqzToPosition(pitchObject.frequency)}]}></View>
             ))
           }
           <Text style={[styles.targetText, {top: (heightRange - 18) - Pitches.fqzToPosition(targetLine)}]}>{targetText}</Text>
