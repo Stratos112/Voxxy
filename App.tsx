@@ -28,8 +28,7 @@ import ProfileScreen, {Profile} from './VOX/profile';
 //Everything happens in here?
 const App = () => { 
 
-  var user = new Profile();
-  user.RetreiveProfile();
+  const user = new Profile();
 
     // Function to request microphone permissions
   const requestPermissions = async () => {

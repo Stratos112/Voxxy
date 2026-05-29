@@ -7,18 +7,18 @@ import { Pitch, Pitches } from './pitch';
 export class Grade{
     public static grade(expected: number, current: number){
 
-        var grade = 1;
-        //For now Im gping to start grading at 3 semitones. 
+        let grade = 1;
+        //For now Im gping to start grading at 3 semitones.
         //The first 50% will cover the furthest 2 semitones, and the last 50% will be split up over 1 semitone
         // THis will happen on either side. so the "grading" will span 6 semitones.
         // anything further away than 3 on either side will be 0%
-        var explus1 = this.sharpOne(expected)
-        var explus2 = this.sharpOne(explus1)
-        var explus3 = this.sharpOne(explus2)
+        const explus1 = this.sharpOne(expected)
+        const explus2 = this.sharpOne(explus1)
+        const explus3 = this.sharpOne(explus2)
 
-        var exmin1 = this.flatOne(expected);
-        var exmin2 = this.flatOne(exmin1);
-        var exmin3 = this.flatOne(exmin2);
+        const exmin1 = this.flatOne(expected);
+        const exmin2 = this.flatOne(exmin1);
+        const exmin3 = this.flatOne(exmin2);
 
         if(current > explus3 || current < exmin3)
         {

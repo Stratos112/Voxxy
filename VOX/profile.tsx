@@ -4,7 +4,7 @@
  * August 2025
 **/
 
-import React , {useState, useEffect, SetStateAction } from 'react';
+import React , {useState, useEffect} from 'react';
 import { 
   Text, 
   View,
@@ -103,13 +103,12 @@ const ProfileScreen: React.FC<ProfileProps> = ({done}) => {
     user.SaveProfile();
   }
 
-  const handleSetHighRange = (item: SetStateAction<string | null>) => {
+  const handleSetHighRange = (item: string | null) => {
     let validPitch;
-    const finalItem = item as unknown as string | null;
-    if(finalItem == null){
+    if(item == null){
       validPitch = Pitches.C6;
     }else{
-      validPitch = Pitches.noteToPitch(finalItem);
+      validPitch = Pitches.noteToPitch(item);
     }
     setHigh_range(validPitch.name);
     user.high_range = validPitch

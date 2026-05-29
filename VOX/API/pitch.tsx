@@ -247,7 +247,7 @@ export class Pitches {
   ];
   
   public static readonly bass = new Range_Class("Bass", Pitches.E4, Pitches.C2);
-  public static readonly barritone = new Range_Class("Barritone", Pitches.A4, Pitches.A2);
+  public static readonly baritone = new Range_Class("Baritone", Pitches.A4, Pitches.A2);
   public static readonly tenor = new Range_Class("Tenor", Pitches.C5, Pitches.C3);
   public static readonly contralto = new Range_Class("Contralto", Pitches.F5, Pitches.F3);
   public static readonly alto = new Range_Class("Alto", Pitches.E5, Pitches.G3);
@@ -256,7 +256,7 @@ export class Pitches {
 
   public static allClasses: Range_Class[] = [
     Pitches.bass,
-    Pitches.barritone,
+    Pitches.baritone,
     Pitches.tenor,
     Pitches.contralto,
     Pitches.alto,
@@ -344,8 +344,6 @@ export class Pitches {
   //The box is 500px tall.
   //vocal range from c6(1046.502) to c2 (65.40639)
   public static fqzToPosition(freq: number){
-    this.setRange();
-
     const scaleMax = heightRange;
 
     // Clamp input to valid range
