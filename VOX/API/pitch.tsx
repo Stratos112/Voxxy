@@ -298,7 +298,7 @@ export class Pitches {
 
   public static centerPitch(high: Pitch, low:Pitch){
     let span = high.id-low.id;
-    return Pitches.allPitches[((span/2)+low.id)];
+    return Pitches.allPitches[Math.floor((span/2)+low.id)];
   }
 
   public static classify(high: Pitch, low:Pitch){

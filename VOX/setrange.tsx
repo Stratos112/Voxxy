@@ -81,7 +81,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
     }else if(!increasing && pivot){
       let high = Pitches.noteToPitch(high_max);
       let low = Pitches.noteToPitch(low_max);
-      setMessage("Congrats, you're a "+Pitches.classify(high, low));
+      setMessage("Congrats, you're a "+Pitches.classify(high, low).name);
       //TODO Save range to profile.
       // end activity. 
     }
