@@ -116,7 +116,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
         
         <View style={styles.pitchBox}>
           {
-            userRange.map((pitchObject,index) => (
+            Pitches.allPitches.map((pitchObject) => (
               <View key={pitchObject.name} style={[styles.pitchGrid, {top:heightRange - Pitches.fqzToPosition(pitchObject.frequency)}]}></View>
             ))
           }

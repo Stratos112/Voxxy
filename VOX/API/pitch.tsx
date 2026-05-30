@@ -349,12 +349,13 @@ export class Pitches {
     // Clamp input to valid range
     const clampedFreq = Math.min(Math.max(freq, Pitches.minFreq), Pitches.maxFreq);
 
-    // Normalize and scale
-    const normalized = (clampedFreq - Pitches.minFreq) / (Pitches.maxFreq - Pitches.minFreq);
+    // Normalize and scale (log — equal spacing per octave)
+    const normalized = (Math.log(clampedFreq) - Math.log(Pitches.minFreq)) / (Math.log(Pitches.maxFreq) - Math.log(Pitches.minFreq));
+
+    // Loggy scale (old) — squishes low notes sometimes?:
+    // const normalized = (clampedFreq - Pitches.minFreq) / (Pitches.maxFreq - Pitches.minFreq);
+
     const mappedValue = Math.round(normalized * scaleMax);
-
-    //TODO -- Make linear. 
-
     return mappedValue;
   }
 }
