@@ -48,11 +48,13 @@ export class Profile {
           const savedLowRangeName = parsedData.low_range?.name;
           const savedHighRangeName = parsedData.high_range?.name;
             
-            this.low_range = savedLowRangeName ? Pitches.noteToPitch(savedLowRangeName) 
+            this.low_range = savedLowRangeName ? Pitches.noteToPitch(savedLowRangeName)
               : Pitches.C2;
-                
-            this.high_range = savedHighRangeName ? Pitches.noteToPitch(savedHighRangeName) 
+
+            this.high_range = savedHighRangeName ? Pitches.noteToPitch(savedHighRangeName)
               : Pitches.C6;
+
+            this.range_class = parsedData.range_class || "undecided";
         }
       } catch (e) {
         console.error('Error loading user data:', e);
@@ -75,6 +77,7 @@ const ProfileScreen: React.FC<ProfileProps> = ({done}) => {
   const [name, setName] = useState<string>(user.name);
   const [low_range, setLow_range] = useState<string>(user.low_range.name);
   const [high_range, setHigh_range] = useState<string>(user.high_range.name);
+  const [range_class, setRange_class] = useState<string>(user.range_class);
   const [rangeGame, setRangeGame] = useState<boolean>(false);
 
    useEffect(() => {
@@ -85,33 +88,27 @@ const ProfileScreen: React.FC<ProfileProps> = ({done}) => {
             setName(user.name);
             setLow_range(user.low_range.name);
             setHigh_range(user.high_range.name);
+            setRange_class(user.range_class);
         };
         loadProfile();
         
     }, []);
 
  const handleSetLowRange = (item: string | null) => {
-    let validPitch;
-    console.log(item);
-    if(item == null){
-      validPitch = Pitches.C2;
-    }else{
-      validPitch = Pitches.noteToPitch(item);
-    }
+    const validPitch = item ? Pitches.noteToPitch(item) : Pitches.C2;
+    user.low_range = validPitch;
+    user.setClass(user.high_range, validPitch);
     setLow_range(validPitch.name);
-    user.low_range = validPitch
+    setRange_class(user.range_class);
     user.SaveProfile();
   }
 
   const handleSetHighRange = (item: string | null) => {
-    let validPitch;
-    if(item == null){
-      validPitch = Pitches.C6;
-    }else{
-      validPitch = Pitches.noteToPitch(item);
-    }
+    const validPitch = item ? Pitches.noteToPitch(item) : Pitches.C6;
+    user.high_range = validPitch;
+    user.setClass(validPitch, user.low_range);
     setHigh_range(validPitch.name);
-    user.high_range = validPitch
+    setRange_class(user.range_class);
     user.SaveProfile();
   }
 
@@ -172,12 +169,14 @@ const highRangeItems = React.useMemo(() => {
             onChangeValue ={handleSetLowRange}
           />
           <Text style={styles.label}>Vocal Range: Highest Note</Text>
-          <Dropdown 
-            placeholder={high_range || "Select High Note"} 
+          <Dropdown
+            placeholder={high_range || "Select High Note"}
             items={highRangeItems}
             value={high_range}
             onChangeValue ={item => handleSetHighRange(item)}
           />
+          <Text style={styles.label}>Voice Type</Text>
+          <Text style={[styles.subtitleText, {color:'#2bc0a0ff', marginLeft:10}]}>{range_class}</Text>
           </View>
           <TouchableOpacity style={[styles.button, {backgroundColor:"#09c9b9ff", left:10}]} onPress={handleSetRangeGame}>
             <Text >Determine Your Range</Text>
