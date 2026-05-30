@@ -13,7 +13,7 @@
 // - if failed twice in a row- -> set pitch as range!! 
 // Some Kind of visual?? 
 
-import React , {useState, useEffect, useCallback} from 'react';
+import React , {useState, useEffect, useCallback, useRef} from 'react';
 import { 
   SafeAreaView, 
   Text, 
@@ -37,10 +37,12 @@ import Sound from 'react-native-sound';
  //pitch match screen
 const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => { 
 
+  const profileRef = useRef(new Profile());
+
   const [hz, setHz] = useState(0);
   const [note, setNote] = useState("C4");
-  const [low_max, setLow_max] = useState("C4");
-  const [high_max, setHigh_max] = useState("C4");
+  const [low_max, setLow_max] = useState(Pitches.C4.name);
+  const [high_max, setHigh_max] = useState(Pitches.C4.name);
   const [expected, setExpected] = useState(Pitches.C4);
   const [grade, setGrade] = useState(1.0);
   const [failCount, setFailCount] = useState(0);
@@ -73,7 +75,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
     else if(increasing && pivot){
       setFailCount(0);
       setIncreasing(false);
-      setExpected(Pitches.C4);
+      setExpected(profileRef.current.low_range);
     }//if they succeed going down.
     else if(!increasing && !pivot){
       setFailCount(0);
@@ -136,6 +138,14 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
   //playback effect
   useEffect(() =>{
     Pitches.loadAll();
+    const loadProfile = async () => {
+      await profileRef.current.RetreiveProfile();
+      const p = profileRef.current;
+      setExpected(p.high_range);
+      setHigh_max(p.high_range.name);
+      setLow_max(p.low_range.name);
+    };
+    loadProfile();
     return () => {
       Pitches.releaseAll();
     }

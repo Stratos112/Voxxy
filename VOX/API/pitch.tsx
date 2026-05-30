@@ -89,7 +89,7 @@ export class Range_Class {
     this.high=high;
     this.low=low;
     this.range = (high.id - low.id);
-    this.center = Pitches.allPitches[this.low.id+(this.range/2)];
+    this.center = Pitches.allPitches[Math.floor(this.low.id+(this.range/2))];
   }
 }
 export class Pitches {
