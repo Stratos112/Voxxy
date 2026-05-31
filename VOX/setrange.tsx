@@ -81,6 +81,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
       profileRef.current.high_range = high;
       profileRef.current.low_range = low;
       profileRef.current.range_class = classification.name;
+      profileRef.current.range_set = true;
       profileRef.current.SaveProfile();
       setMessage("Congrats, you're a " + classification.name + "!");
       setPhase('done');

@@ -19,6 +19,7 @@ import {
  } from 'react-native';
 
 import styles, { pitchBoxWidth } from './VOX/UI/styles';
+import RangeGate from './VOX/UI/rangeGate';
 import PitchMatchScreen from './VOX//pitchmatch';
 import IntervalScreen from './VOX//intervals';
 import SequenceScreen from './VOX//sequences';
@@ -58,12 +59,12 @@ const App = () => {
   // The empty dependency array [] ensures it only runs once on mount.
   useEffect(() => {
     requestPermissions();
-    user.RetreiveProfile();
+    user.RetreiveProfile().then(() => setRangeSet(user.range_set));
   }, []);
   
-  //so heres a hook
-    const [currentScreen, setCurrentScreen] = useState('main');
-    const [profileScreen, setProfileScreen] = useState(false);
+  const [rangeSet, setRangeSet] = useState(false);
+  const [currentScreen, setCurrentScreen] = useState('main');
+  const [profileScreen, setProfileScreen] = useState(false);
 
   // This will be called when the "Pitch Match" button is pressed.
   const handlePitchMatchPress = () => {
@@ -84,32 +85,30 @@ const App = () => {
     setCurrentScreen('sequence');
   };
 
-  // This function will be passed to the new screen to handle going back.
   const handleGoBack = () => {
+    user.RetreiveProfile().then(() => setRangeSet(user.range_set));
     setCurrentScreen('main');
   };
 
-  //function for clicking "profile"
   const handleProfile = () =>{
-    //if we are calling this from "go back"
     if(profileScreen == true){
+      user.RetreiveProfile().then(() => setRangeSet(user.range_set));
       setProfileScreen(false);
     }else{
       setProfileScreen(true);
-      user.RetreiveProfile();  
+      user.RetreiveProfile();
     }
   };
 
-  //render different screens with the currentScreen statehook
   switch(currentScreen){
     case 'setRange':
       return <SetRangeScreen onBack={handleGoBack} />;
     case 'pitchMatch':
-      return <PitchMatchScreen onBack={handleGoBack} />;
+      return <View style={{ flex: 1 }}><PitchMatchScreen onBack={handleGoBack} />{!rangeSet && <RangeGate onSetRange={handleSetRangePress} onBack={handleGoBack} />}</View>;
     case 'intervals':
-      return <IntervalScreen onBack={handleGoBack} />;
+      return <View style={{ flex: 1 }}><IntervalScreen onBack={handleGoBack} />{!rangeSet && <RangeGate onSetRange={handleSetRangePress} onBack={handleGoBack} />}</View>;
     case 'sequence':
-      return <SequenceScreen onBack={handleGoBack} />;
+      return <View style={{ flex: 1 }}><SequenceScreen onBack={handleGoBack} />{!rangeSet && <RangeGate onSetRange={handleSetRangePress} onBack={handleGoBack} />}</View>;
   }
 
   return (

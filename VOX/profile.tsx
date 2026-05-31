@@ -26,12 +26,14 @@ export class Profile {
   public low_range!: Pitch;
   public high_range!: Pitch;
   public range_class!: string;
+  public range_set!: boolean;
 
   constructor(){
     this.name = "username";
     this.range_class = "undecided";
     this.low_range = Pitches.C2;
     this.high_range = Pitches.C6;
+    this.range_set = false;
   }
 
   public setClass(high:Pitch, low:Pitch){
@@ -55,6 +57,7 @@ export class Profile {
               : Pitches.C6;
 
             this.range_class = parsedData.range_class || "undecided";
+            this.range_set = parsedData.range_set || false;
         }
       } catch (e) {
         console.error('Error loading user data:', e);
@@ -98,6 +101,7 @@ const ProfileScreen: React.FC<ProfileProps> = ({done}) => {
     const validPitch = item ? Pitches.noteToPitch(item) : Pitches.C2;
     user.low_range = validPitch;
     user.setClass(user.high_range, validPitch);
+    user.range_set = true;
     setLow_range(validPitch.name);
     setRange_class(user.range_class);
     user.SaveProfile();
@@ -107,6 +111,7 @@ const ProfileScreen: React.FC<ProfileProps> = ({done}) => {
     const validPitch = item ? Pitches.noteToPitch(item) : Pitches.C6;
     user.high_range = validPitch;
     user.setClass(validPitch, user.low_range);
+    user.range_set = true;
     setHigh_range(validPitch.name);
     setRange_class(user.range_class);
     user.SaveProfile();
