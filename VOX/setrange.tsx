@@ -25,7 +25,6 @@ import { Pitches } from './API/pitch';
 import {Grade} from './API/grade';
 import { Profile } from './profile';
 import styles from './UI/styles';
-import BackButton from './UI/backButton';
 
 import Sound from 'react-native-sound';
 
@@ -50,37 +49,32 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
   const [message, setMessage] = useState('');
   const [avgGrade, setAvgGrade] = useState(0.0);
   const [listening, setListening] = useState(false);
+  const [phase, setPhase] = useState<'idle' | 'active' | 'result' | 'done'>('idle');
   
   Sound.setCategory('Playback');
   
   function start(){
-    // Stop listening
     setListening(false);
     setAvgGrade(0.0);
-    //play current target
+    setPhase('active');
     expected.play();
-    
-    //wait for note to finish before listening
     const timerId = setTimeout(() => {
-          evaluate();
-      }, 3000);
+      evaluate();
+    }, 3000);
   }
 
-  function nextPitch(pivot:boolean){
-    //if they passed going up
+  function nextPitch(pivot:boolean): boolean {
     if(increasing && !pivot){
       setFailCount(0);
       increment();
-    }//if they fail going up
-    else if(increasing && pivot){
+    } else if(increasing && pivot){
       setFailCount(0);
       setIncreasing(false);
       setExpected(profileRef.current.low_range);
-    }//if they succeed going down.
-    else if(!increasing && !pivot){
+    } else if(!increasing && !pivot){
       setFailCount(0);
       decrement();
-    }else if(!increasing && pivot){
+    } else if(!increasing && pivot){
       let high = Pitches.noteToPitch(high_max);
       let low = Pitches.noteToPitch(low_max);
       const classification = Pitches.classify(high, low);
@@ -89,8 +83,10 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
       profileRef.current.range_class = classification.name;
       profileRef.current.SaveProfile();
       setMessage("Congrats, you're a " + classification.name + "!");
-      // end activity.
+      setPhase('done');
+      return true;
     }
+    return false;
   }
 
   const increment = useCallback(() => {
@@ -117,23 +113,24 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
 
       const timerId = setTimeout(() => {
           setListening(false);
+          setPhase('result');
 
-          //woah, so apparently there is an internal promise to force the most current version through the setter, so I can read it from the setter, then set it to the same value without changing it. 
           setAvgGrade(latestAvgGrade => {
-              if (latestAvgGrade >= 70) { 
-                  setMessage("Your got "+ latestAvgGrade.toFixed(2) + "! Great job, lets increment the pitch!")
+              let done = false;
+              if (latestAvgGrade >= 70) {
+                  setMessage("Nice! Moving up.");
                   nextPitch(false);
-              } else if(failCount >=3){
-                setMessage("Ok that must be your highest note, lets go the other way.");
-                nextPitch(true);
+              } else if(failCount >= 3){
+                  setMessage("That's your top. Going lower.");
+                  done = nextPitch(true);
               } else {
-                  setMessage("Your grade was "+ latestAvgGrade.toFixed(2) + ", hmmm keep working at it!")
-                  setFailCount(failCount+1);
+                  setMessage(latestAvgGrade.toFixed(0) + "% — Try again [insert breathing/vocalization tip]");
+                  setFailCount(failCount + 1);
               }
-              // We return the same value because we just wanted to read it, not change it.
-              return latestAvgGrade; 
+              if (!done) setTimeout(() => setPhase('idle'), 2000);
+              return latestAvgGrade;
           });
-      }, 3000); 
+      }, 3000);
 
     return () => clearTimeout(timerId);
   }, [setListening, setAvgGrade, failCount]);
@@ -188,57 +185,61 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
   }, [listening]); 
 
   return (
-    <SafeAreaView style={{top:25}}>
-        <TouchableOpacity style={[styles.backButton, { position:"absolute", right:10}]} onPress={onBack}>
-          <Text style={styles.backButtonText}>Go Back</Text> 
-        </TouchableOpacity>
-        <View style={{flexDirection:'row', marginBottom:0}}>
-          <Text style={[styles.titleText, {marginBottom: 2}]}>Range Game</Text> 
-        </View>
-      <View style={styles.controls}>
-        <Text style={styles.subtitleText}>
-          Expected: {expected.name}
-        </Text>
-      </View>
-      <View style={styles.controls}>
-        <Text style={styles.subtitleText}>
-          Grade: {avgGrade}
-        </Text>
-      </View>
-      <View style={styles.dividerBox}>
-        <Text style={[styles.bodyText, {color:'#d5dbe7ff'}]}>Your Current Pitch:</Text>
-        <View style={styles.controls}>
-          <Text style={styles.subtitleText}>
-            Pitch: {note}
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#16083dff' }}>
+
+      {phase === 'idle' && (
+        <>
+          <TouchableOpacity style={[styles.backButton, { position: 'absolute', right: 10 }]} onPress={onBack}>
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={styles.titleText}>Range Determination</Text>
+            <Text style={[styles.subtitleText, { marginTop: 16 }]}>Target: {expected.name}</Text>
+            <Text style={[styles.bodyText, { color: '#d5dbe7ff', marginTop: 8 }]}>
+              {high_max} — {low_max}
+            </Text>
+            <TouchableOpacity style={[styles.button, { marginTop: 40 }]} onPress={start}>
+              <Text style={styles.buttonText}>Start!</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
+
+      {phase === 'active' && (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={[styles.bodyText, { color: '#d5dbe7ff' }]}>Target</Text>
+          <Text style={[styles.titleText, { fontSize: 64, marginTop: 4 }]}>{expected.name}</Text>
+          <Text style={[styles.subtitleText, { color: '#2bc0a0ff', marginTop: 32 }]}>
+            {listening ? note : '...'}
           </Text>
         </View>
-        <View style={styles.controls}>
-          <Text style={styles.subtitleText}>
-            Fqz: {hz}
-          </Text>
-        </View>
-      </View>
-      <View style={styles.controls}>
-          <Text style={[styles.bodyText, {color:'#2bc0a0ff', marginLeft:10}]}>
+      )}
+
+      {phase === 'result' && (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={[styles.subtitleText, { textAlign: 'center', paddingHorizontal: 30 }]}>
             {message}
           </Text>
-      </View>
-      <View style={styles.dividerBox}>
-        <Text style={[styles.bodyText, {color:'#d5dbe7ff'}]}>Your Range:</Text>
-        <View style={styles.controls}>
-          <Text style={styles.subtitleText}>
-            Highest: {high_max}
+          <Text style={[styles.bodyText, { color: '#2bc0a0ff', marginTop: 10 }]}>
+            {avgGrade.toFixed(0)}%
           </Text>
         </View>
-        <View style={styles.controls}>
-          <Text style={styles.subtitleText}>
-            Lowest: {low_max}
+      )}
+
+      {phase === 'done' && (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={[styles.titleText, { textAlign: 'center', paddingHorizontal: 24 }]}>
+            {message}
           </Text>
+          <Text style={[styles.bodyText, { color: '#d5dbe7ff', marginTop: 20 }]}>
+            {high_max} — {low_max}
+          </Text>
+          <TouchableOpacity style={[styles.button, { marginTop: 40 }]} onPress={onBack}>
+            <Text style={styles.buttonText}>Done</Text>
+          </TouchableOpacity>
         </View>
-      </View>
-      <TouchableOpacity style={[styles.button]} onPress={start}>
-          <Text style={styles.buttonText}>Start!</Text> 
-        </TouchableOpacity>
+      )}
+
     </SafeAreaView>
   );
 };
