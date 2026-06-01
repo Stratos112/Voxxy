@@ -97,6 +97,14 @@ const ProfileScreen: React.FC<ProfileProps> = ({done}) => {
         
     }, []);
 
+  const checkReset = () => {
+    if (user.high_range.name === Pitches.C4.name && user.low_range.name === Pitches.C4.name) {
+      user.range_set = false;
+      user.range_class = "undecided";
+      setRange_class("undecided");
+    }
+  }
+
  const handleSetLowRange = (item: string | null) => {
     const validPitch = item ? Pitches.noteToPitch(item) : Pitches.C2;
     user.low_range = validPitch;
@@ -104,6 +112,7 @@ const ProfileScreen: React.FC<ProfileProps> = ({done}) => {
     user.range_set = true;
     setLow_range(validPitch.name);
     setRange_class(user.range_class);
+    checkReset();
     user.SaveProfile();
   }
 
@@ -114,6 +123,7 @@ const ProfileScreen: React.FC<ProfileProps> = ({done}) => {
     user.range_set = true;
     setHigh_range(validPitch.name);
     setRange_class(user.range_class);
+    checkReset();
     user.SaveProfile();
   }
 

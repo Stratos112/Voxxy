@@ -215,6 +215,11 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
           <Text style={[styles.subtitleText, { color: '#2bc0a0ff', marginTop: 32 }]}>
             {listening ? note : '...'}
           </Text>
+          {listening && (
+            <Text style={[styles.bodyText, { color: '#d5dbe7ff', marginTop: 8 }]}>
+              {avgGrade.toFixed(0)}%
+            </Text>
+          )}
         </View>
       )}
 
