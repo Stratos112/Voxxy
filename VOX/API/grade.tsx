@@ -5,7 +5,9 @@
 import { Pitch, Pitches } from './pitch';
 
 export class Grade{
-    public static grade(expected: number, current: number){
+    public static grade(expected: number, current: number, bias: 'none' | 'sharp' | 'flat' = 'none'){
+        if (bias === 'sharp' && current >= expected) return 100;
+        if (bias === 'flat' && current <= expected) return 100;
 
         let grade = 1;
         //For now Im gping to start grading at 3 semitones.

@@ -37,6 +37,7 @@ import Sound from 'react-native-sound';
 const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => { 
 
   const profileRef = useRef(new Profile());
+  const increasingRef = useRef(true);
 
   const [hz, setHz] = useState(0);
   const [note, setNote] = useState("C4");
@@ -70,6 +71,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
     } else if(increasing && pivot){
       setFailCount(0);
       setIncreasing(false);
+      increasingRef.current = false;
       setExpected(profileRef.current.low_range);
     } else if(!increasing && !pivot){
       setFailCount(0);
@@ -163,7 +165,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
         subscription = PitchDetector.addListener((value: { frequency: number, tone: string}) => {
           setHz(value.frequency); // the fqz of what you are singing
           setNote(value.tone);    // the name of the pitch you are singing. 
-          let current = Grade.grade(expected.frequency, value.frequency)
+          let current = Grade.grade(expected.frequency, value.frequency, increasingRef.current ? 'sharp' : 'flat')
           setAvgGrade((grade + current) / 2);
           setGrade(current);
 
