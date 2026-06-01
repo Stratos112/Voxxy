@@ -7,16 +7,16 @@
 **/
 
 import React , {useState, useEffect} from 'react';
-import { 
-  Button, 
+import {
+  Button,
   Image,
-  SafeAreaView, 
-  Text, 
+  SafeAreaView,
+  Text,
   View,
   TouchableOpacity,
   Platform,
-  PermissionsAndroid,
  } from 'react-native';
+import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
 import styles, { pitchBoxWidth } from './VOX/UI/styles';
 import RangeGate from './VOX/UI/rangeGate';
@@ -31,28 +31,15 @@ const App = () => {
 
   const user = new Profile();
 
-    // Function to request microphone permissions
   const requestPermissions = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-          {
-            title: 'Microphone Permission',
-            message: 'This app needs access to your microphone to record audio.',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          }
-        );
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          console.log('Microphone permission granted');
-        } else {
-          console.log('Microphone permission denied');
-        }
-      } catch (err) {
-        console.warn(err);
-      }
+    const permission = Platform.select({
+      android: PERMISSIONS.ANDROID.RECORD_AUDIO,
+      ios: PERMISSIONS.IOS.MICROPHONE,
+    });
+    if (!permission) return;
+    const status = await check(permission);
+    if (status === RESULTS.DENIED) {
+      await request(permission);
     }
   };
 
