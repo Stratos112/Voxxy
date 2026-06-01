@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Image, LayoutChangeEvent } from 'react-native';
+import { Pitch } from '../API/pitch';
 
 type NoteName = 'C' | 'C#' | 'D' | 'D#' | 'E' | 'F' | 'F#' | 'G' | 'G#' | 'A' | 'A#' | 'B';
 
@@ -18,19 +19,19 @@ const ASSET_ASPECT = 420 / 224;
 const BASE = require('../../static/piano/Paino.png');
 
 const BLACK_UNPRESSED: Record<string, any> = {
-  'C#': require('../../static/piano/C#.png'),
-  'D#': require('../../static/piano/D#.png'),
-  'F#': require('../../static/piano/F#.png'),
-  'G#': require('../../static/piano/G#.png'),
-  'A#': require('../../static/piano/A#.png'),
+  'C#': require('../../static/piano/Cs.png'),
+  'D#': require('../../static/piano/Ds.png'),
+  'F#': require('../../static/piano/Fs.png'),
+  'G#': require('../../static/piano/Gs.png'),
+  'A#': require('../../static/piano/As.png'),
 };
 
 const BLACK_PRESSED: Record<string, any> = {
-  'C#': require('../../static/piano/C#_pressed.png'),
-  'D#': require('../../static/piano/D#_pressed.png'),
-  'F#': require('../../static/piano/F#_pressed.png'),
-  'G#': require('../../static/piano/G#_pressed.png'),
-  'A#': require('../../static/piano/A#_pressed.png'),
+  'C#': require('../../static/piano/Cs_pressed.png'),
+  'D#': require('../../static/piano/Ds_pressed.png'),
+  'F#': require('../../static/piano/Fs_pressed.png'),
+  'G#': require('../../static/piano/Gs_pressed.png'),
+  'A#': require('../../static/piano/As_pressed.png'),
 };
 
 const WHITE_PRESSED: Record<string, any> = {
@@ -52,6 +53,21 @@ const BOTH_PRESSED: Record<string, any> = {
   'A-B': require('../../static/piano/A-B_both-pressed.png'),
   'B-C': require('../../static/piano/B-C_both-pressed.png'),
 };
+
+const FLAT_TO_SHARP: Record<string, string> = {
+  'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#',
+};
+
+export function pitchToKey(pitch: Pitch): string {
+  const match = pitch.name.match(/^([A-G]b?)(\d+)$/);
+  if (!match) return pitch.name;
+  const note = FLAT_TO_SHARP[match[1]] ?? match[1];
+  return `${note}${match[2]}`;
+}
+
+export function pitchesToKeys(pitches: Pitch[]): string[] {
+  return pitches.map(pitchToKey);
+}
 
 function parseNote(note: string): { name: NoteName; octave: number } | null {
   const match = note.match(/^([A-G]#?)(\d+)$/);
@@ -97,20 +113,14 @@ const Piano: React.FC<PianoProps> = ({ pressedKeys = [], octaves }) => {
       // 1. White key base
       layers.push(img(BASE, x, octaveW, `base-${octave}`));
 
-      // 2. Black keys — swap for pressed version if needed
-      BLACK_KEYS.forEach(key => {
-        const src = isPressed(key as NoteName, octave) ? BLACK_PRESSED[key] : BLACK_UNPRESSED[key];
-        layers.push(img(src, x, octaveW, `bk-${key}-${octave}`));
-      });
-
-      // 3. Pressed white keys
+      // 2. Pressed white keys
       WHITE_KEYS.forEach(key => {
         if (isPressed(key as NoteName, octave)) {
           layers.push(img(WHITE_PRESSED[key], x, octaveW, `wk-${key}-${octave}`));
         }
       });
 
-      // 4. Adjacent pressed white key connectors within this octave
+      // 3. Adjacent pressed white key connectors within this octave
       ADJACENT_WHITE_PAIRS.forEach(pair => {
         const [a, b] = pair.split('-') as [NoteName, NoteName];
         if (isPressed(a, octave) && isPressed(b, octave)) {
@@ -118,14 +128,17 @@ const Piano: React.FC<PianoProps> = ({ pressedKeys = [], octaves }) => {
         }
       });
 
-      // 5. B-C connector across octave boundary
-      // Rendered at the start of the NEXT octave — the image shows C on its left
-      // edge and extends left to cover the B join from the previous octave.
+      // 4. B-C connector across octave boundary
       const nextOctave = octaveList[idx + 1];
       if (nextOctave !== undefined && isPressed('B', octave) && isPressed('C', nextOctave)) {
-        const nextX = (idx + 1) * octaveW;
-        layers.push(img(BOTH_PRESSED['B-C'], nextX, octaveW, `bp-B-C-${octave}`));
+        layers.push(img(BOTH_PRESSED['B-C'], x, octaveW, `bp-B-C-${octave}`));
       }
+
+      // 5. Black keys on top of everything — always in front
+      BLACK_KEYS.forEach(key => {
+        const src = isPressed(key as NoteName, octave) ? BLACK_PRESSED[key] : BLACK_UNPRESSED[key];
+        layers.push(img(src, x, octaveW, `bk-${key}-${octave}`));
+      });
     });
   }
 
