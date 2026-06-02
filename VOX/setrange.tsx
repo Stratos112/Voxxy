@@ -121,7 +121,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
           setAvgGrade(latestAvgGrade => {
               let done = false;
               if (latestAvgGrade >= 70) {
-                  setMessage("Nice! Moving up.");
+                  setMessage("Nice! Let's increment again.");
                   nextPitch(false);
               } else if(failCount >= 3){
                   setMessage("That's your top. Going lower.");
