@@ -38,6 +38,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
 
   const profileRef = useRef(new Profile());
   const increasingRef = useRef(true);
+  const activeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [hz, setHz] = useState(0);
   const [note, setNote] = useState("C4");
@@ -54,14 +55,33 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
   
   Sound.setCategory('Playback');
   
+  function clearActiveTimer() {
+    if (activeTimerRef.current) {
+      clearTimeout(activeTimerRef.current);
+      activeTimerRef.current = null;
+    }
+  }
+
   function start(){
+    clearActiveTimer();
     setListening(false);
     setAvgGrade(0.0);
     setPhase('active');
     expected.play();
-    const timerId = setTimeout(() => {
+    activeTimerRef.current = setTimeout(() => {
       evaluate();
     }, 3000);
+  }
+
+  function surrender() {
+    clearActiveTimer();
+    setListening(false);
+    setMessage("No worries — that's your limit.");
+    const done = nextPitch(true);
+    if (!done) {
+      setPhase('result');
+      activeTimerRef.current = setTimeout(() => setPhase('idle'), 2000);
+    }
   }
 
   function nextPitch(pivot:boolean): boolean {
@@ -114,7 +134,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
   const evaluate = useCallback(() => {
       setListening(true);
 
-      const timerId = setTimeout(() => {
+      activeTimerRef.current = setTimeout(() => {
           setListening(false);
           setPhase('result');
 
@@ -130,12 +150,10 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
                   setMessage(latestAvgGrade.toFixed(0) + "% — Try again [insert breathing/vocalization tip]");
                   setFailCount(failCount + 1);
               }
-              if (!done) setTimeout(() => setPhase('idle'), 2000);
+              if (!done) activeTimerRef.current = setTimeout(() => setPhase('idle'), 2000);
               return latestAvgGrade;
           });
       }, 3000);
-
-    return () => clearTimeout(timerId);
   }, [setListening, setAvgGrade, failCount]);
 
 
@@ -220,6 +238,12 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
               {avgGrade.toFixed(0)}%
             </Text>
           )}
+          <TouchableOpacity
+            style={[styles.button, { marginTop: 48, backgroundColor: 'transparent', borderWidth: 1, borderColor: '#ffffff44' }]}
+            onPress={surrender}
+          >
+            <Text style={[styles.buttonText, { color: '#ffffff88' }]}>I can't</Text>
+          </TouchableOpacity>
         </View>
       )}
 
