@@ -99,13 +99,14 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
     } else if(!increasing && pivot){
       let high = Pitches.noteToPitch(high_max);
       let low = Pitches.noteToPitch(low_max);
-      const classification = Pitches.classify(high, low);
+      const classes = Pitches.classify(high, low);
+      const label = classes.map(r => r.name).join(' / ');
       profileRef.current.high_range = high;
       profileRef.current.low_range = low;
-      profileRef.current.range_class = classification.name;
+      profileRef.current.range_class = label;
       profileRef.current.range_set = true;
       profileRef.current.SaveProfile();
-      setMessage("Congrats, you're a " + classification.name + "!");
+      setMessage("Congrats, you're a " + label + "!");
       setPhase('done');
       return true;
     }
@@ -242,7 +243,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
             style={[styles.button, { marginTop: 48, backgroundColor: 'transparent', borderWidth: 1, borderColor: '#ffffff44' }]}
             onPress={surrender}
           >
-            <Text style={[styles.buttonText, { color: '#ffffff88' }]}>I can't</Text>
+            <Text style={[styles.buttonText, { color: '#ffffff88' }]}>My Voice is Straining.</Text>
           </TouchableOpacity>
         </View>
       )}

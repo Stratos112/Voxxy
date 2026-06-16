@@ -37,7 +37,7 @@ export class Profile {
   }
 
   public setClass(high:Pitch, low:Pitch){
-    this.range_class = Pitches.classify(high, low).name;
+    this.range_class = Pitches.classify(high, low).map(r => r.name).join(' / ');
   }
 
   public RetreiveProfile = async () => {

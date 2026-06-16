@@ -371,18 +371,35 @@ export class Pitches {
     return Pitches.allPitches[Math.floor((span/2)+low.id)];
   }
 
-  public static classify(high: Pitch, low:Pitch){
-    let center = this.centerPitch(high, low).id;
-    let classification = Pitches.bass;
-    let minDeviation = 100;
-    for(const range of Pitches.allClasses){
-      let deviation = Math.abs(center - range.center.id);
-      if(deviation < minDeviation){
-        minDeviation = deviation;
-        classification = range;
+  public static classify(high: Pitch, low: Pitch): Range_Class[] {
+    const center = this.centerPitch(high, low);
+    const votes = new Map<string, number>();
+
+    const nearestTo = (pitch: Pitch): Range_Class => {
+      let best = Pitches.bass;
+      let minDev = Infinity;
+      for (const range of Pitches.allClasses) {
+        const dev = Math.abs(pitch.id - range.center.id);
+        if (dev < minDev) { minDev = dev; best = range; }
       }
+      return best;
+    };
+
+    const cast = (range: Range_Class, weight: number) =>
+      votes.set(range.name, (votes.get(range.name) || 0) + weight);
+
+    cast(nearestTo(low), 1);
+    cast(nearestTo(high), 1);
+    cast(nearestTo(center), 2);
+
+    const sorted = Pitches.allClasses
+      .filter(r => votes.has(r.name))
+      .sort((a, b) => (votes.get(b.name) || 0) - (votes.get(a.name) || 0));
+
+    if (sorted.length >= 2 && (votes.get(sorted[1].name) || 0) >= 2) {
+      return [sorted[0], sorted[1]];
     }
-    return classification;
+    return [sorted[0]];
   }
 
 
