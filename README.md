@@ -1,70 +1,53 @@
-# Building, Running and Editing
+# Voxxy
 
-## Step 1: Start 
+Vocal and Ear-Training Tools.
 
+---
+
+## Running the app
+
+**1. Start Metro** (keep this running between installs):
 ```sh
-# Using npm
 npm start
-
-# OR using Yarn
-yarn start
 ```
 
-## Step 2: Build and run
-
-With npm running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
+**2. Build and install** (new terminal):
 ```sh
 npx react-native run-android
 ```
 
-Unsure of if the following works after new gradle build/
+This runs `assembleDebug`, sets up `adb reverse tcp:8081 tcp:8081`, and installs the APK directly. No Gradle ADB hang.
+
+---
+
+## If Metro doesn't connect
+
+The app opens but shows "Unable to load script"? Re-run the reverse forward manually:
 ```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
+adb reverse tcp:8081 tcp:8081
 ```
+Then shake the device → Reload, or close and reopen the app.
 
+---
 
-### iOS
+## If the device shows as `unauthorized`
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
+Check the phone screen for a **"Allow USB debugging?"** prompt and tap Allow. Then:
 ```sh
-bundle install
+adb kill-server
+adb start-server
 ```
+Reconnect the USB cable if the prompt doesn't appear.
 
-Then, and every time you update your native dependencies, run:
+---
 
+## Installing without rebuilding
+
+The APK lives at:
+```
+android/app/build/outputs/apk/debug/app-debug.apk
+```
+Install it directly:
 ```sh
-bundle exec pod install
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 ```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify
-
-Open `.tsx` files in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.

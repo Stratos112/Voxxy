@@ -35,5 +35,12 @@ React Native (0.80.2 / React 19) vocal training app. Helps singers find their ra
 - `evaluate` in `setrange.tsx` captures `failCount` and `grade` via closure — stale on re-render
 - `Pitches.increment/decrement` skip by 2 when adjacent pitch shares the same `.file` (enharmonics like As0/Bb0) — intentional to stay on natural notes, but can surprise
 
+### Build & Dev (devcontainer/WSL2 + physical Android)
+- **Metro:** `npm start` in one terminal. Keep it running between installs.
+- **Build + install:** `npm run android` → runs `assembleDebug`, sets `adb reverse tcp:8081 tcp:8081`, then `adb install`. Do NOT use `installDebug` — hangs at 99% in devcontainer.
+- **Metro not connecting?** Run `adb reverse tcp:8081 tcp:8081` manually, then reload the app.
+- **APK path:** `android/app/build/outputs/apk/debug/app-debug.apk`
+- **Device serial:** `RFCX30ZP0QW` (Sky's Samsung). If device shows `unauthorized`, check phone screen for USB debugging prompt.
+
 ### Skills
 - `/audio-debug` — symptom-to-cause lookup for audio pipeline issues. Use before reading any audio file.
