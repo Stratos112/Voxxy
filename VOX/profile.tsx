@@ -28,12 +28,15 @@ export class Profile {
   public range_class!: string;
   public range_set!: boolean;
 
+  public prefer_sharps: boolean = true;
+
   constructor(){
     this.name = "username";
     this.range_class = "undecided";
     this.low_range = Pitches.C2;
     this.high_range = Pitches.C6;
     this.range_set = false;
+    this.prefer_sharps = true;
   }
 
   public setClass(high:Pitch, low:Pitch){
@@ -58,6 +61,8 @@ export class Profile {
 
             this.range_class = parsedData.range_class || "undecided";
             this.range_set = parsedData.range_set || false;
+            this.prefer_sharps = parsedData.prefer_sharps ?? true;
+            Pitches.preferSharps = this.prefer_sharps;
         }
       } catch (e) {
         console.error('Error loading user data:', e);
@@ -81,6 +86,7 @@ const ProfileScreen: React.FC<ProfileProps> = ({done, onRangeSetup}) => {
   const [low_range, setLow_range] = useState<string>(user.low_range.name);
   const [high_range, setHigh_range] = useState<string>(user.high_range.name);
   const [range_class, setRange_class] = useState<string>(user.range_class);
+  const [preferSharps, setPreferSharps] = useState<boolean>(true);
 
    useEffect(() => {
         const loadProfile = async () => {
@@ -91,6 +97,7 @@ const ProfileScreen: React.FC<ProfileProps> = ({done, onRangeSetup}) => {
             setLow_range(user.low_range.name);
             setHigh_range(user.high_range.name);
             setRange_class(user.range_class);
+            setPreferSharps(user.prefer_sharps);
         };
         loadProfile();
         
@@ -139,18 +146,25 @@ const ProfileScreen: React.FC<ProfileProps> = ({done, onRangeSetup}) => {
     done();
   }
 
+  const handleToggleAccidentals = () => {
+    const next = !preferSharps;
+    setPreferSharps(next);
+    user.prefer_sharps = next;
+    Pitches.preferSharps = next;
+    user.SaveProfile();
+  };
 
 const lowRangeItems = React.useMemo(() => {
-    return Pitches.allPitches
+    return Pitches.filteredPitches()
         .filter(pitch => pitch.frequency <= user.high_range.frequency)
         .map(pitch => ({ label: pitch.name, value: pitch.name }));
-}, [user]);
+}, [user, preferSharps]);
 
 const highRangeItems = React.useMemo(() => {
-    return Pitches.allPitches
+    return Pitches.filteredPitches()
         .filter(pitch => pitch.frequency >= user.low_range.frequency)
-        .map(pitch => ({ label: pitch.name, value: pitch.name })); 
-}, [user]);
+        .map(pitch => ({ label: pitch.name, value: pitch.name }));
+}, [user, preferSharps]);
 
   return (
     <View style={styles.profileContainer}>
@@ -180,6 +194,21 @@ const highRangeItems = React.useMemo(() => {
           />
           <Text style={styles.label}>Voice Type</Text>
           <Text style={[styles.subtitleText, {color:'#2bc0a0ff', marginLeft:10}]}>{range_class}</Text>
+          <Text style={styles.label}>Accidentals</Text>
+          <View style={{ flexDirection: 'row', marginLeft: 10, marginTop: 4, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: '#2bc0a0ff', alignSelf: 'flex-start' }}>
+            <TouchableOpacity
+              onPress={handleToggleAccidentals}
+              style={{ paddingVertical: 6, paddingHorizontal: 16, backgroundColor: preferSharps ? '#2bc0a0ff' : 'transparent' }}
+            >
+              <Text style={{ color: preferSharps ? '#16083dff' : '#2bc0a0ff', fontWeight: 'bold' }}>Sharps</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleToggleAccidentals}
+              style={{ paddingVertical: 6, paddingHorizontal: 16, backgroundColor: !preferSharps ? '#2bc0a0ff' : 'transparent' }}
+            >
+              <Text style={{ color: !preferSharps ? '#16083dff' : '#2bc0a0ff', fontWeight: 'bold' }}>Flats</Text>
+            </TouchableOpacity>
+          </View>
           </View>
           <TouchableOpacity style={[styles.button, {backgroundColor:"#09c9b9ff", left:10}]} onPress={onRangeSetup}>
             <Text >Determine Your Range</Text>

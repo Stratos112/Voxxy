@@ -141,7 +141,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
         </View>  
       <View style={styles.controls}>
         <Text style={styles.titleText}>
-          Pitch: {note}
+          Pitch: {Pitches.displayTone(note)}
         </Text>
       </View>
       <View style={styles.controls}>

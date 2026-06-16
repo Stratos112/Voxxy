@@ -216,9 +216,9 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
           </TouchableOpacity>
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
             <Text style={styles.titleText}>Range Determination</Text>
-            <Text style={[styles.subtitleText, { marginTop: 16 }]}>Target: {expected.name}</Text>
+            <Text style={[styles.subtitleText, { marginTop: 16 }]}>Target: {Pitches.displayName(expected)}</Text>
             <Text style={[styles.bodyText, { color: '#d5dbe7ff', marginTop: 8 }]}>
-              {high_max} — {low_max}
+              {Pitches.displayName(Pitches.noteToPitch(high_max))} — {Pitches.displayName(Pitches.noteToPitch(low_max))}
             </Text>
             <TouchableOpacity style={[styles.button, { marginTop: 40 }]} onPress={start}>
               <Text style={styles.buttonText}>Start!</Text>
@@ -230,9 +230,9 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
       {phase === 'active' && (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={[styles.bodyText, { color: '#d5dbe7ff' }]}>Target</Text>
-          <Text style={[styles.titleText, { fontSize: 64, marginTop: 4 }]}>{expected.name}</Text>
+          <Text style={[styles.titleText, { fontSize: 64, marginTop: 4 }]}>{Pitches.displayName(expected)}</Text>
           <Text style={[styles.subtitleText, { color: '#2bc0a0ff', marginTop: 32 }]}>
-            {listening ? note : '...'}
+            {listening ? Pitches.displayTone(note) : '...'}
           </Text>
           {listening && (
             <Text style={[styles.bodyText, { color: '#d5dbe7ff', marginTop: 8 }]}>

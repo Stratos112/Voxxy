@@ -366,6 +366,46 @@ export class Pitches {
     }
   }
 
+  public static preferSharps: boolean = true;
+
+  private static readonly SHARP_TO_FLAT: Record<string, string> = {
+    'C#': 'Db', 'D#': 'Eb', 'F#': 'Gb', 'G#': 'Ab', 'A#': 'Bb'
+  };
+  private static readonly FLAT_TO_SHARP: Record<string, string> = {
+    'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#'
+  };
+
+  public static filteredPitches(): Pitch[] {
+    return this.allPitches.filter(p =>
+      this.preferSharps ? p.name[1] !== 'b' : p.name[1] !== '#'
+    );
+  }
+
+  public static displayName(p: Pitch): string {
+    if (this.preferSharps && p.name[1] === 'b') {
+      const sharp = this.allPitches.find(x => x.file === p.file && x.name[1] === '#');
+      return sharp ? sharp.name : p.name;
+    }
+    if (!this.preferSharps && p.name[1] === '#') {
+      const flat = this.allPitches.find(x => x.file === p.file && x.name[1] === 'b');
+      return flat ? flat.name : p.name;
+    }
+    return p.name;
+  }
+
+  public static displayTone(tone: string): string {
+    if (this.preferSharps) {
+      for (const [flat, sharp] of Object.entries(this.FLAT_TO_SHARP)) {
+        if (tone.startsWith(flat)) return sharp + tone.slice(flat.length);
+      }
+    } else {
+      for (const [sharp, flat] of Object.entries(this.SHARP_TO_FLAT)) {
+        if (tone.startsWith(sharp)) return flat + tone.slice(sharp.length);
+      }
+    }
+    return tone;
+  }
+
   public static centerPitch(high: Pitch, low:Pitch){
     let span = high.id-low.id;
     return Pitches.allPitches[Math.floor((span/2)+low.id)];
