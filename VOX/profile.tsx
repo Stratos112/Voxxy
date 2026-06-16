@@ -11,7 +11,6 @@ import {
   TouchableOpacity,
   TextInput
  } from 'react-native';
- import SetRangeScreen from './setrange';
  import styles, {pitchBoxWidth} from './UI/styles';
  import { Pitch, Pitches } from './API/pitch';
  import Dropdown from './UI/dropdown';
@@ -19,6 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface ProfileProps{
   done: () => void;
+  onRangeSetup: () => void;
 }
 
 export class Profile {
@@ -75,13 +75,12 @@ export class Profile {
   }
 }
 
-const ProfileScreen: React.FC<ProfileProps> = ({done}) => {
+const ProfileScreen: React.FC<ProfileProps> = ({done, onRangeSetup}) => {
   const [user, setUser] = useState(new Profile());
   const [name, setName] = useState<string>(user.name);
   const [low_range, setLow_range] = useState<string>(user.low_range.name);
   const [high_range, setHigh_range] = useState<string>(user.high_range.name);
   const [range_class, setRange_class] = useState<string>(user.range_class);
-  const [rangeGame, setRangeGame] = useState<boolean>(false);
 
    useEffect(() => {
         const loadProfile = async () => {
@@ -127,15 +126,6 @@ const ProfileScreen: React.FC<ProfileProps> = ({done}) => {
     user.SaveProfile();
   }
 
-  const handleSetRangeGame = () => {
-    if(rangeGame == true)
-    {
-      setRangeGame(false);
-    }else{
-      setRangeGame(true);
-    }
-  }
-
   const setProfile = () => {
     user.name = name;
     user.high_range = Pitches.noteToPitch(high_range);
@@ -164,8 +154,6 @@ const highRangeItems = React.useMemo(() => {
 
   return (
     <View style={styles.profileContainer}>
-      {rangeGame && <SetRangeScreen onBack={handleSetRangeGame} /> }
-      {!rangeGame &&
         <View style={styles.profileContainer}>
           <Text style={[styles.titleText,{marginTop:40}]}>Profile</Text>
           <View style={styles.form}>
@@ -193,15 +181,13 @@ const highRangeItems = React.useMemo(() => {
           <Text style={styles.label}>Voice Type</Text>
           <Text style={[styles.subtitleText, {color:'#2bc0a0ff', marginLeft:10}]}>{range_class}</Text>
           </View>
-          <TouchableOpacity style={[styles.button, {backgroundColor:"#09c9b9ff", left:10}]} onPress={handleSetRangeGame}>
+          <TouchableOpacity style={[styles.button, {backgroundColor:"#09c9b9ff", left:10}]} onPress={onRangeSetup}>
             <Text >Determine Your Range</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.backButton, {position:'absolute', bottom:80, left:(pitchBoxWidth/2)-30}]} onPress={handleDone}>
             <Text >Done</Text>
           </TouchableOpacity>
         </View>
-      }
-      
     </View>
   );
 };

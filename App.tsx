@@ -24,6 +24,7 @@ import PitchMatchScreen from './VOX//pitchmatch';
 import IntervalScreen from './VOX//intervals';
 import SequenceScreen from './VOX//sequences';
 import SetRangeScreen from './VOX/setrange';
+import RangeSetupScreen from './VOX/rangesetup';
 import ProfileScreen, {Profile} from './VOX/profile';
 
 //Everything happens in here?
@@ -87,7 +88,14 @@ const App = () => {
     }
   };
 
+  const handleRangeSetupPress = () => {
+    setProfileScreen(false);
+    setCurrentScreen('rangeSetup');
+  };
+
   switch(currentScreen){
+    case 'rangeSetup':
+      return <RangeSetupScreen onBack={handleGoBack} onSetRange={handleSetRangePress} />;
     case 'setRange':
       return <SetRangeScreen onBack={handleGoBack} />;
     case 'pitchMatch':
@@ -110,7 +118,7 @@ const App = () => {
         
         {/* The buttons for handle changing screens*/}
         <TouchableOpacity style={styles.button} onPress={handleSetRangePress}>
-          <Text style={styles.buttonText}>Determine Range</Text>
+          <Text style={styles.buttonText}>Range Expansion</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.button} onPress={handlePitchMatchPress}>
           <Text style={styles.buttonText}>Pitch Match</Text>
@@ -122,7 +130,7 @@ const App = () => {
           <Text style={styles.buttonText}>Sequences</Text>
         </TouchableOpacity>
       </View>
-      {profileScreen && <ProfileScreen done={handleProfile}/>}
+      {profileScreen && <ProfileScreen done={handleProfile} onRangeSetup={handleRangeSetupPress}/>}
     </SafeAreaView>
   );
 };
