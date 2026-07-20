@@ -47,6 +47,7 @@ const App = () => {
 
   // The empty dependency array [] ensures it only runs once on mount.
   useEffect(() => {
+    Pitches.setupPlayer();
     requestPermissions();
     user.RetreiveProfile().then(() => {
       setRangeSet(user.range_set);

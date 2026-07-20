@@ -20,7 +20,6 @@ import {Grade} from './API/grade';
 import { Profile } from './profile';
 import styles from './UI/styles';
 
-import Sound from 'react-native-sound';
 
  interface setRangeScreenProps {
   onBack: () => void;
@@ -62,7 +61,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
     setAvgGrade(0.0);
     setGrade(0);
     setPhase('active');
-    expected.play();
+    Pitches.playSingle(expected);
     activeTimerRef.current = setTimeout(() => {
       evaluate();
     }, 3000);
@@ -159,8 +158,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
 
   //playback effect
   useEffect(() =>{
-    Sound.setCategory('Playback');
-    Pitches.loadAll();
+    Pitches.setupPlayer();
     const loadProfile = async () => {
       await profileRef.current.RetreiveProfile();
       const p = profileRef.current;
@@ -169,9 +167,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
       setLow_max(p.low_range.name);
     };
     loadProfile();
-    return () => {
-      Pitches.releaseAll();
-    }
+    return () => {}
   }, []);
 
   // THis is what you can copy/paste for grading on another game, this whole effect will update current note/hz grade and avgGrade.

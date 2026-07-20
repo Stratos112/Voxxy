@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
 import { PitchDetector } from 'react-native-pitch-detector';
-import Sound from 'react-native-sound';
 import { Pitch, Pitches } from './API/pitch';
 import { Profile } from './profile';
 import styles from './UI/styles';
@@ -59,11 +58,8 @@ const RangeSetupScreen: React.FC<Props> = ({ onBack, onSetRange }) => {
   const [listening, setListening]     = useState(false);
 
   useEffect(() => {
-    Sound.setCategory('Playback');
-    Pitches.loadAll();
     profileRef.current.RetreiveProfile();
     return () => {
-      Pitches.releaseAll();
       timersRef.current.forEach(clearTimeout);
     };
   }, []);

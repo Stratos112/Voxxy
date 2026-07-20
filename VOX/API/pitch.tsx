@@ -5,97 +5,22 @@
 
 import { heightRange } from '../UI/styles';
 import { Profile } from '../profile';
-import Sound from 'react-native-sound';
+import { Platform } from 'react-native';
+import TrackPlayer, { Event, Track } from 'react-native-track-player';
 
 export class Pitch {
     public name!: string;
     public frequency!: number;
     public file!: string;
-    public sound!: Sound;
     public id!: number;
-    public index!:number;
+    public index!: number;
 
-    constructor(note: string, frequency: number, file:string, id:number, index:number) {
+    constructor(note: string, frequency: number, file: string, id: number, index: number) {
         this.name = note;
         this.frequency = frequency;
         this.file = file;
-        this.id= id;
-        this.index=index;
-        const sound = this.load();
-        sound.setVolume(1);
-    }
-
-    public load():Sound {
-      const s = new Sound(this.file, Sound.MAIN_BUNDLE, (error: any) => {
-          if (error) {
-            console.log('failed to load the sound', error);
-            return;
-          }
-      });
-      return s;
-    }
-
-    public release = () => {
-      if (this.sound) {
-        this.sound.release();
-      }
-    }
-
-    public play(duration?: number, onComplete?: () => void) {
-      if (!this.sound) {
-        console.log(`needed to reload ${this.name}`);
-        this.sound = this.load();
-      }
-      if (!this.sound) {
-        console.error(`Fatal: Cannot play ${this.name}. Sound failed to initialize.`);
-        onComplete?.();
-        return;
-      }
-
-      if (duration !== undefined) {
-        let done = false;
-        const once = () => { if (!done) { done = true; onComplete?.(); } };
-        const aborted = { value: false };
-        this._retry(0, once, aborted);
-        setTimeout(() => {
-          if (!done) { aborted.value = true; this._softCut(once); }
-        }, Math.max(0, duration - 80));
-      } else {
-        this._retry(0, onComplete);
-      }
-    }
-
-    private _retry(retryCount: number, onComplete?: () => void, aborted?: { value: boolean }) {
-      const max = 5;
-      this.sound.play((success) => {
-        if (aborted?.value) return;
-        console.log(`[Attempt ${retryCount + 1}] ${success ? 'played' : 'failed'}: ${this.name}`);
-        this.sound?.setCurrentTime(0);
-        if (success) {
-          onComplete?.();
-        } else if (retryCount < max) {
-          setTimeout(() => this._retry(retryCount + 1, onComplete, aborted), 1000);
-        } else {
-          console.error(`Failed to play ${this.name} after ${max + 1} attempts.`);
-          onComplete?.();
-        }
-      });
-    }
-
-    private _softCut(onDone?: () => void) {
-      if (!this.sound) { onDone?.(); return; }
-      const STEPS = 5;
-      const STEP_MS = 16;
-      let step = 0;
-      const fade = setInterval(() => {
-        step++;
-        this.sound?.setVolume(Math.max(0, 1 - step / STEPS));
-        if (step >= STEPS) {
-          clearInterval(fade);
-          this.sound?.stop(() => this.sound?.setVolume(1));
-          onDone?.();
-        }
-      }, STEP_MS);
+        this.id = id;
+        this.index = index;
     }
 }
 
@@ -359,16 +284,26 @@ export class Pitches {
   // Prevent instantiation for this utility class (optional but recommended)
   private constructor() {}
 
-  public static loadAll(){
-    this.allPitches.forEach((p: Pitch, i: number) => {
-      p.load();
-    });
+  public static async setupPlayer(): Promise<void> {
+    try {
+      await TrackPlayer.setupPlayer({ waitForBuffer: true });
+    } catch (e) {
+      // Already set up — safe to ignore
+    }
   }
 
-  public static releaseAll(){
-    this.allPitches.forEach((p: Pitch, i: number) => {
-      p.release();
-    });
+  public static toTrack(pitch: Pitch): Track {
+    const url = Platform.OS === 'android'
+      ? `asset:///${pitch.file}`
+      : pitch.file;
+    return { id: pitch.name, url, title: pitch.name, artist: 'Voxxy' };
+  }
+
+  public static playSingle(pitch: Pitch): void {
+    TrackPlayer.reset()
+      .then(() => TrackPlayer.add(Pitches.toTrack(pitch)))
+      .then(() => TrackPlayer.play())
+      .catch(e => console.error('playSingle error:', e));
   }
 
   public static increment(me: Pitch) {
@@ -492,8 +427,10 @@ export class Pitches {
   // used to translate frequency to position.
   //The box is 500px tall.
   //vocal range from c6(1046.502) to c2 (65.40639)
-  // Sequential playback — each note waits for the previous to finish (or duration ms).
-  // onEachNote fires just before each note plays. Returns an abort function.
+  // Sequential playback via RNTP queue.
+  // With duration: skips tracks on a wall-clock schedule with a brief fade between notes.
+  // Without duration: plays each track to natural end, uses PlaybackQueueEnded for completion.
+  // onEachNote fires when each note begins. Returns an abort function.
   public static playMono(
     sequence: Pitch[],
     duration?: number,
@@ -501,37 +438,74 @@ export class Pitches {
     onEachNote?: (index: number, pitch: Pitch) => void
   ): () => void {
     let aborted = false;
-    const chain = (index: number) => {
-      if (aborted || index >= sequence.length) {
-        if (!aborted) onComplete?.();
-        return;
-      }
-      onEachNote?.(index, sequence[index]);
-      sequence[index].play(duration, () => chain(index + 1));
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const listeners: { remove: () => void }[] = [];
+
+    const cleanup = () => {
+      listeners.forEach(l => l.remove());
+      listeners.length = 0;
+      timers.forEach(clearTimeout);
+      timers.length = 0;
     };
-    chain(0);
-    return () => { aborted = true; };
+
+    const setup = async () => {
+      await TrackPlayer.reset();
+      await TrackPlayer.add(sequence.map(p => Pitches.toTrack(p)));
+
+      if (duration === undefined) {
+        listeners.push(TrackPlayer.addEventListener(Event.PlaybackTrackChanged, ({ nextTrack }) => {
+          if (aborted || nextTrack == null) return;
+          onEachNote?.(nextTrack, sequence[nextTrack]);
+        }));
+        listeners.push(TrackPlayer.addEventListener(Event.PlaybackQueueEnded, () => {
+          if (!aborted) { cleanup(); onComplete?.(); }
+        }));
+        onEachNote?.(0, sequence[0]);
+        await TrackPlayer.play();
+      } else {
+        const FADE_MS = 80;
+        onEachNote?.(0, sequence[0]);
+
+        sequence.slice(1).forEach((pitch, i) => {
+          const noteStart = (i + 1) * duration;
+          // Fade out tail of previous note
+          timers.push(setTimeout(() => { if (!aborted) TrackPlayer.setVolume(0.5); }, noteStart - FADE_MS));
+          timers.push(setTimeout(() => { if (!aborted) TrackPlayer.setVolume(0.15); }, noteStart - FADE_MS / 2));
+          // Skip to next note, restore volume, notify
+          timers.push(setTimeout(async () => {
+            if (aborted) return;
+            await TrackPlayer.setVolume(1);
+            await TrackPlayer.skipToNext();
+            onEachNote?.(i + 1, pitch);
+          }, noteStart));
+        });
+
+        timers.push(setTimeout(() => {
+          if (!aborted) { cleanup(); onComplete?.(); TrackPlayer.reset(); }
+        }, sequence.length * duration));
+
+        await TrackPlayer.play();
+      }
+    };
+
+    setup().catch(e => console.error('playMono error:', e));
+
+    return () => {
+      aborted = true;
+      cleanup();
+      TrackPlayer.reset().catch(() => {});
+    };
   }
 
-  // Polyphonic playback — notes start every intervalMs, allowed to overlap.
-  // Returns an abort function.
+  // Polyphonic playback — TODO: RNTP is single-stream; full polyphonic needs a separate solution.
   public static playPoly(
-    sequence: Pitch[],
-    intervalMs: number,
-    duration?: number,
-    onComplete?: () => void
+    _sequence: Pitch[],
+    _intervalMs: number,
+    _duration?: number,
+    _onComplete?: () => void
   ): () => void {
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    let aborted = false;
-    sequence.forEach((pitch, i) => {
-      const t = setTimeout(() => { if (!aborted) pitch.play(duration); }, i * intervalMs);
-      timers.push(t);
-    });
-    if (onComplete) {
-      const totalMs = (sequence.length - 1) * intervalMs + (duration ?? 2000);
-      timers.push(setTimeout(() => { if (!aborted) onComplete(); }, totalMs));
-    }
-    return () => { aborted = true; timers.forEach(clearTimeout); };
+    console.warn('playPoly: not yet implemented with RNTP');
+    return () => {};
   }
 
   public static fqzToPosition(freq: number){
