@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 interface ProfileProps{
   done: () => void;
   onRangeSetup: () => void;
+  onShowTutorial?: () => void;
 }
 
 export class Profile {
@@ -80,7 +81,7 @@ export class Profile {
   }
 }
 
-const ProfileScreen: React.FC<ProfileProps> = ({done, onRangeSetup}) => {
+const ProfileScreen: React.FC<ProfileProps> = ({done, onRangeSetup, onShowTutorial}) => {
   const [user, setUser] = useState(new Profile());
   const [name, setName] = useState<string>(user.name);
   const [low_range, setLow_range] = useState<string>(user.low_range.name);
@@ -226,6 +227,9 @@ const highRangeItems = React.useMemo(() => {
           </TouchableOpacity>
           <TouchableOpacity style={[styles.button, {backgroundColor:"#3a1a1a", borderWidth:1, borderColor:"#ff4444", left:10, marginTop:6}]} onPress={handleDebugReset}>
             <Text style={{color:"#ff4444", fontSize:12}}>⚠ Reset Profile [DEBUG]</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.button, {backgroundColor:"transparent", borderWidth:1, borderColor:"#2bc0a0ff", left:10, marginTop:6}]} onPress={onShowTutorial}>
+            <Text style={{color:"#2bc0a0ff", fontSize:13}}>Show tutorial</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.backButton, {position:'absolute', bottom:80, left:(pitchBoxWidth/2)-30}]} onPress={handleDone}>
             <Text >Done</Text>

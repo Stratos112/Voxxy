@@ -169,7 +169,7 @@ const RangeSetupScreen: React.FC<Props> = ({ onBack, onSetRange }) => {
         : seqStartRef.current;
       const nextSeq = buildAscSequence(current);
       const stop =
-        (round > 1 && current.frequency <= seqStartRef.current.frequency) ||
+        current.frequency <= seqStartRef.current.frequency ||
         current.id > LIMIT_HIGH ||
         nextSeq.length === 0    ||
         round >= MAX_ROUNDS;

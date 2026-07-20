@@ -23,11 +23,12 @@ import styles from './UI/styles';
 
  interface setRangeScreenProps {
   onBack: () => void;
+  onComplete?: () => void;
 }
 
 
  //pitch match screen
-const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => { 
+const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack, onComplete }) => {
 
   const profileRef = useRef(new Profile());
   const increasingRef = useRef(true);
@@ -103,7 +104,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
       profileRef.current.range_class = label;
       profileRef.current.range_set = true;
       profileRef.current.SaveProfile();
-      setMessage("Congrats, you're a " + label + "!");
+      setMessage("a " + label);
       setPhase('done');
       return true;
     }
@@ -257,14 +258,15 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
 
       {phase === 'done' && (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={[styles.titleText, { textAlign: 'center', paddingHorizontal: 24 }]}>
-            {message}
+          <Text style={[styles.bodyText, { color: '#d5dbe7ff' }]}>Your range is</Text>
+          <Text style={[styles.titleText, { fontSize: 36, marginTop: 8 }]}>
+            {low_max} to {high_max}
           </Text>
-          <Text style={[styles.bodyText, { color: '#d5dbe7ff', marginTop: 20 }]}>
-            {high_max} — {low_max}
+          <Text style={[styles.bodyText, { color: '#2bc0a0ff', marginTop: 12 }]}>
+            that's like {message}
           </Text>
-          <TouchableOpacity style={[styles.button, { marginTop: 40 }]} onPress={onBack}>
-            <Text style={styles.buttonText}>Done</Text>
+          <TouchableOpacity style={[styles.button, { marginTop: 40 }]} onPress={onComplete ?? onBack}>
+            <Text style={styles.buttonText}>{onComplete ? 'Continue' : 'Done'}</Text>
           </TouchableOpacity>
         </View>
       )}

@@ -20,12 +20,13 @@ interface Props {
   bridgeMode?: boolean;
   bridgeDialog?: string[];
   finalLabel?: string;
+  finalMode?: boolean;
 }
 
-const OnboardingScreen: React.FC<Props> = ({ onDone, onRangeSetup, bridgeMode, bridgeDialog, finalLabel }) => {
+const FoxxyScreen: React.FC<Props> = ({ onDone, onRangeSetup, bridgeMode, bridgeDialog, finalLabel, finalMode }) => {
   const slideY = useRef(new Animated.Value(-height)).current;
   const profileRef = useRef(new Profile());
-  const [step, setStep] = useState(bridgeMode ? 1 : 0);
+  const [step, setStep] = useState(bridgeMode || finalMode ? 1 : 0);
   const [textDone, setTextDone] = useState(false);
   const [username, setUsername] = useState('');
   const [subView, setSubView] = useState<'dialog' | 'range-select'>('dialog');
@@ -33,9 +34,23 @@ const OnboardingScreen: React.FC<Props> = ({ onDone, onRangeSetup, bridgeMode, b
   const [lowRange, setLowRange] = useState(Pitches.C2.name);
   const [highRange, setHighRange] = useState(Pitches.C6.name);
   const [rangeClass, setRangeClass] = useState('');
+  const [finalLines, setFinalLines] = useState<string[]>([]);
 
   useEffect(() => {
-    profileRef.current.RetreiveProfile();
+    profileRef.current.RetreiveProfile().then(() => {
+      const p = profileRef.current;
+      if (finalMode) {
+        const low  = Pitches.displayName(p.low_range);
+        const high = Pitches.displayName(p.high_range);
+        const cls  = p.range_class !== 'undecided' ? p.range_class : 'a unique voice';
+        setFinalLines([
+          `${p.name}, your range is ${low} to ${high}. That makes you ${cls}. Thanks for helping us calibrate!`,
+          "Range Expansion is here whenever you want to push your limits further. Pitch Match trains your accuracy one note at a time.",
+          "Interval Training sharpens your ear for the space between notes. Sequences build your accuracy across short melodies.",
+          "Find your preferences in the settings wheel at the top right. You can replay this tour from there any time. Now have a blast!",
+        ]);
+      }
+    });
     Animated.spring(slideY, {
       toValue: 0,
       tension: 55,
@@ -52,8 +67,8 @@ const OnboardingScreen: React.FC<Props> = ({ onDone, onRangeSetup, bridgeMode, b
     }).start(cb);
   };
 
-  const lines = bridgeMode && bridgeDialog ? bridgeDialog : DIALOG;
-  const isFinalStep = step === lines.length + (bridgeMode ? 0 : 1);
+  const lines = finalMode ? finalLines : (bridgeMode && bridgeDialog ? bridgeDialog : DIALOG);
+  const isFinalStep = step === lines.length;
 
   const handleNext = () => {
     setSkip(false);
@@ -126,6 +141,14 @@ const OnboardingScreen: React.FC<Props> = ({ onDone, onRangeSetup, bridgeMode, b
     );
   }
 
+  if (finalMode && finalLines.length === 0) {
+    return (
+      <Animated.View style={[local.container, { transform: [{ translateY: slideY }] }]}>
+        <View style={local.card} />
+      </Animated.View>
+    );
+  }
+
   return (
     <Animated.View style={[local.container, { transform: [{ translateY: slideY }] }]}>
       <Pressable style={local.card} onPress={() => { if (!textDone) setSkip(true); }}>
@@ -159,11 +182,11 @@ const OnboardingScreen: React.FC<Props> = ({ onDone, onRangeSetup, bridgeMode, b
               onDone={() => setTextDone(true)}
             />
             <NextButton
-              onPress={() => slideAway(bridgeMode ? onDone : onRangeSetup)}
+              onPress={() => slideAway(bridgeMode || finalMode ? onDone : onRangeSetup)}
               label={finalLabel ?? "Let's go ▶"}
               disabled={!textDone}
             />
-            {!bridgeMode && (
+            {!bridgeMode && !finalMode && (
               <TouchableOpacity
                 onPress={() => setSubView('range-select')}
                 disabled={!textDone}
@@ -246,4 +269,4 @@ const local = StyleSheet.create({
   },
 });
 
-export default OnboardingScreen;
+export default FoxxyScreen;

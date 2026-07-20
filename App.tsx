@@ -27,7 +27,7 @@ import SequenceScreen from './VOX//sequences';
 import SetRangeScreen from './VOX/setrange';
 import RangeSetupScreen from './VOX/rangesetup';
 import ProfileScreen, {Profile} from './VOX/profile';
-import OnboardingScreen from './VOX/onboarding';
+import FoxxyScreen from './VOX/foxxy';
 
 //Everything happens in here?
 const App = () => { 
@@ -53,13 +53,15 @@ const App = () => {
     user.RetreiveProfile().then(() => {
       setRangeSet(user.range_set);
       setProfileLoaded(true);
-      if (!user.range_set) setShowOnboarding(true);
+      if (!user.range_set) { setShowOnboarding(true); setOnboardingFlow(true); }
     });
   }, []);
 
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showRangeBridge, setShowRangeBridge] = useState(false);
+  const [showFinalFoxxy, setShowFinalFoxxy] = useState(false);
+  const [onboardingFlow, setOnboardingFlow] = useState(false);
   const [rangeSet, setRangeSet] = useState(false);
   const [currentScreen, setCurrentScreen] = useState('main');
   const [profileScreen, setProfileScreen] = useState(false);
@@ -108,11 +110,22 @@ const App = () => {
     setShowRangeBridge(true);
   };
 
+  const handleSetRangeComplete = () => {
+    setOnboardingFlow(false);
+    setCurrentScreen('main');
+    setShowFinalFoxxy(true);
+  };
+
+  const handleShowTutorial = () => {
+    setProfileScreen(false);
+    setShowFinalFoxxy(true);
+  };
+
   switch(currentScreen){
     case 'rangeSetup':
       return <RangeSetupScreen onBack={handleGoBack} onSetRange={handleRangeSetupComplete} />;
     case 'setRange':
-      return <SetRangeScreen onBack={handleGoBack} />;
+      return <SetRangeScreen onBack={handleGoBack} onComplete={onboardingFlow ? handleSetRangeComplete : undefined} />;
     case 'pitchMatch':
       return <View style={{ flex: 1 }}><PitchMatchScreen onBack={handleGoBack} />{!rangeSet && <RangeGate onSetRange={handleSetRangePress} onBack={handleGoBack} />}</View>;
     case 'intervals':
@@ -124,20 +137,27 @@ const App = () => {
   return (
     <SafeAreaView style={styles.mainContainer}>
       {showOnboarding && profileLoaded && (
-        <OnboardingScreen
+        <FoxxyScreen
           onDone={() => setShowOnboarding(false)}
           onRangeSetup={() => { setShowOnboarding(false); setCurrentScreen('rangeSetup'); }}
         />
       )}
       {showRangeBridge && (
-        <OnboardingScreen
+        <FoxxyScreen
           bridgeMode
           bridgeDialog={[
             "Nice work! We have a rough idea of your range.",
-            "Now let's dial it in — we'll play notes one at a time and you try to match them.",
+            "Try to hit one note at a time on the edge of your range.",
           ]}
           finalLabel="Let's do it ▶"
           onDone={() => { setShowRangeBridge(false); setCurrentScreen('setRange'); }}
+          onRangeSetup={() => {}}
+        />
+      )}
+      {showFinalFoxxy && (
+        <FoxxyScreen
+          finalMode
+          onDone={() => { setShowFinalFoxxy(false); user.RetreiveProfile().then(() => setRangeSet(user.range_set)); }}
           onRangeSetup={() => {}}
         />
       )}
@@ -163,7 +183,7 @@ const App = () => {
           <Text style={styles.buttonText}>Sequences</Text>
         </TouchableOpacity>
       </View>
-      {profileScreen && <ProfileScreen done={handleProfile} onRangeSetup={handleRangeSetupPress}/>}
+      {profileScreen && <ProfileScreen done={handleProfile} onRangeSetup={handleRangeSetupPress} onShowTutorial={handleShowTutorial}/>}
     </SafeAreaView>
   );
 };
