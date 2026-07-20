@@ -26,6 +26,7 @@ import SequenceScreen from './VOX//sequences';
 import SetRangeScreen from './VOX/setrange';
 import RangeSetupScreen from './VOX/rangesetup';
 import ProfileScreen, {Profile} from './VOX/profile';
+import OnboardingScreen from './VOX/onboarding';
 
 //Everything happens in here?
 const App = () => { 
@@ -47,9 +48,15 @@ const App = () => {
   // The empty dependency array [] ensures it only runs once on mount.
   useEffect(() => {
     requestPermissions();
-    user.RetreiveProfile().then(() => setRangeSet(user.range_set));
+    user.RetreiveProfile().then(() => {
+      setRangeSet(user.range_set);
+      setProfileLoaded(true);
+      if (!user.range_set) setShowOnboarding(true);
+    });
   }, []);
-  
+
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [rangeSet, setRangeSet] = useState(false);
   const [currentScreen, setCurrentScreen] = useState('main');
   const [profileScreen, setProfileScreen] = useState(false);
@@ -108,7 +115,10 @@ const App = () => {
 
   return (
     <SafeAreaView style={styles.mainContainer}>
-      {!profileScreen && 
+      {showOnboarding && profileLoaded && (
+        <OnboardingScreen onDone={() => setShowOnboarding(false)} />
+      )}
+      {!profileScreen &&
           <TouchableOpacity onPress={handleProfile} style={{position:'absolute'}}>
             <Image source={require('./static/gear.png')} style={styles.settingsButton}/>
           </TouchableOpacity>
