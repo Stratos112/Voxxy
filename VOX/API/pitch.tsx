@@ -52,15 +52,13 @@ export class Pitch {
         return;
       }
 
-      const fileDurationMs = (this.sound.getDuration() ?? 0) * 1000;
-      const shouldCut = duration !== undefined && fileDurationMs > 0 && duration < fileDurationMs;
-
-      if (shouldCut) {
-        const cutAborted = { value: false };
-        this._retry(0, undefined, cutAborted);
+      if (duration !== undefined) {
+        let done = false;
+        const once = () => { if (!done) { done = true; onComplete?.(); } };
+        const aborted = { value: false };
+        this._retry(0, once, aborted);
         setTimeout(() => {
-          cutAborted.value = true;
-          this._softCut(onComplete);
+          if (!done) { aborted.value = true; this._softCut(once); }
         }, Math.max(0, duration - 80));
       } else {
         this._retry(0, onComplete);
@@ -94,10 +92,8 @@ export class Pitch {
         this.sound?.setVolume(Math.max(0, 1 - step / STEPS));
         if (step >= STEPS) {
           clearInterval(fade);
-          this.sound?.stop(() => {
-            this.sound?.setVolume(1);
-            onDone?.();
-          });
+          this.sound?.stop(() => this.sound?.setVolume(1));
+          onDone?.();
         }
       }, STEP_MS);
     }
