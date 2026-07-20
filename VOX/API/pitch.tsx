@@ -400,6 +400,12 @@ export class Pitches {
   }
 
 
+  public static nearestPitch(hz: number): Pitch {
+    return this.filteredPitches().reduce((best, p) =>
+      Math.abs(p.frequency - hz) < Math.abs(best.frequency - hz) ? p : best
+    );
+  }
+
   public static noteToPitch(name: string)
   {
     let pitch = Pitches.C4;
@@ -449,11 +455,8 @@ export class Pitches {
     };
 
     const setup = async () => {
-      console.log('[playMono] reset, seq:', sequence.map(p => p.name).join(','));
       await TrackPlayer.reset();
-      const tracks = sequence.map(p => Pitches.toTrack(p));
-      console.log('[playMono] first track url:', tracks[0]?.url);
-      await TrackPlayer.add(tracks);
+      await TrackPlayer.add(sequence.map(p => Pitches.toTrack(p)));
 
       if (duration === undefined) {
         listeners.push(TrackPlayer.addEventListener(Event.PlaybackTrackChanged, ({ nextTrack }) => {
@@ -466,7 +469,7 @@ export class Pitches {
         onEachNote?.(0, sequence[0]);
         await TrackPlayer.play();
       } else {
-        const FADE_MS = 80;
+        const FADE_MS = 180;
         onEachNote?.(0, sequence[0]);
 
         sequence.slice(1).forEach((pitch, i) => {
@@ -487,9 +490,7 @@ export class Pitches {
           if (!aborted) { cleanup(); onComplete?.(); TrackPlayer.reset(); }
         }, sequence.length * duration));
 
-        console.log('[playMono] calling play()');
-        await TrackPlayer.play();
-        console.log('[playMono] play() returned');
+        await TrackPlayer.play();;
       }
     };
 

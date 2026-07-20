@@ -150,8 +150,10 @@ const RangeSetupScreen: React.FC<Props> = ({ onBack, onSetRange }) => {
 
   const handleContinue = () => {
     if (direction === 'descending') {
-      const current  = (lowestNote ? Pitches.noteToPitch(lowestNote) : null) ?? seqStartRef.current;
-      const nextSeq  = buildDescSequence(current);
+      const current = lowestHzRef.current < Infinity
+        ? Pitches.nearestPitch(lowestHzRef.current)
+        : seqStartRef.current;
+      const nextSeq = buildDescSequence(current);
       const stop =
         (round > 1 && current.frequency >= seqStartRef.current.frequency) ||
         current.id < LIMIT_LOW  ||
@@ -162,8 +164,10 @@ const RangeSetupScreen: React.FC<Props> = ({ onBack, onSetRange }) => {
       else startGame(current, round + 1, 'descending');
 
     } else {
-      const current  = (highestNote ? Pitches.noteToPitch(highestNote) : null) ?? seqStartRef.current;
-      const nextSeq  = buildAscSequence(current);
+      const current = highestHzRef.current > 0
+        ? Pitches.nearestPitch(highestHzRef.current)
+        : seqStartRef.current;
+      const nextSeq = buildAscSequence(current);
       const stop =
         (round > 1 && current.frequency <= seqStartRef.current.frequency) ||
         current.id > LIMIT_HIGH ||
