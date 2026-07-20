@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, View, StyleSheet, TextInput, Text, TouchableOpacity } from 'react-native';
+import { Animated, Dimensions, View, StyleSheet, TextInput, Text, TouchableOpacity, Pressable } from 'react-native';
 import AnimatedText from './UI/AnimatedText';
 import NextButton from './UI/NextButton';
 import Dropdown from './UI/dropdown';
@@ -26,6 +26,7 @@ const OnboardingScreen: React.FC<Props> = ({ onDone, onRangeSetup }) => {
   const [textDone, setTextDone] = useState(false);
   const [username, setUsername] = useState('');
   const [subView, setSubView] = useState<'dialog' | 'range-select'>('dialog');
+  const [skip, setSkip] = useState(false);
   const [lowRange, setLowRange] = useState(Pitches.C2.name);
   const [highRange, setHighRange] = useState(Pitches.C6.name);
   const [rangeClass, setRangeClass] = useState('');
@@ -51,6 +52,7 @@ const OnboardingScreen: React.FC<Props> = ({ onDone, onRangeSetup }) => {
   const isFinalStep = step === DIALOG.length;
 
   const handleNext = () => {
+    setSkip(false);
     if (step === 0) {
       profileRef.current.name = username;
       profileRef.current.SaveProfile();
@@ -93,7 +95,7 @@ const OnboardingScreen: React.FC<Props> = ({ onDone, onRangeSetup }) => {
   if (subView === 'range-select') {
     return (
       <Animated.View style={[local.container, { transform: [{ translateY: slideY }] }]}>
-        <View style={local.card}>
+        <Pressable style={local.card}>
           <Text style={local.text}>What's your range?</Text>
           <Text style={local.label}>Lowest note</Text>
           <Dropdown placeholder={lowRange} items={lowItems} value={lowRange} onChangeValue={handleLowChange} />
@@ -103,23 +105,33 @@ const OnboardingScreen: React.FC<Props> = ({ onDone, onRangeSetup }) => {
             <Text style={local.rangeClass}>{rangeClass}</Text>
           )}
           <NextButton
-            onPress={() => { profileRef.current.SaveProfile(); slideAway(onDone); }}
+            onPress={() => {
+              const low = Pitches.noteToPitch(lowRange);
+              const high = Pitches.noteToPitch(highRange);
+              profileRef.current.low_range = low;
+              profileRef.current.high_range = high;
+              profileRef.current.range_set = true;
+              profileRef.current.range_class = Pitches.classify(high, low).map(r => r.name).join(' / ');
+              profileRef.current.SaveProfile();
+              slideAway(onDone);
+            }}
             label="Save & Continue ▶"
           />
-        </View>
+        </Pressable>
       </Animated.View>
     );
   }
 
   return (
     <Animated.View style={[local.container, { transform: [{ translateY: slideY }] }]}>
-      <View style={local.card}>
+      <Pressable style={local.card} onPress={() => { if (!textDone) setSkip(true); }}>
 
         {step === 0 ? (
           <>
             <AnimatedText
               text="Hey! Welcome to Voxxy. What can we call you?"
               style={local.text}
+              skip={skip}
               onDone={() => setTextDone(true)}
             />
             <TextInput
@@ -139,6 +151,7 @@ const OnboardingScreen: React.FC<Props> = ({ onDone, onRangeSetup }) => {
             <AnimatedText
               text={DIALOG[DIALOG.length - 1]}
               style={local.text}
+              skip={skip}
               onDone={() => setTextDone(true)}
             />
             <NextButton
@@ -159,13 +172,14 @@ const OnboardingScreen: React.FC<Props> = ({ onDone, onRangeSetup }) => {
             <AnimatedText
               text={DIALOG[step - 1]}
               style={local.text}
+              skip={skip}
               onDone={() => setTextDone(true)}
             />
             <NextButton onPress={handleNext} disabled={!textDone} />
           </>
         )}
 
-      </View>
+      </Pressable>
     </Animated.View>
   );
 };
