@@ -10,19 +10,22 @@ const { height } = Dimensions.get('window');
 
 const DIALOG = [
   "Every singer is unique. Before we dive in, let's figure out your vocal range.",
-  "We'll play a note and listen as you sing it back. No pressure — just listen and try.",
+  "We'll play a short sequence of notes and listen as you sing them back. No pressure — just listen and try.",
   "Ready? Let's find your voice.",
 ];
 
 interface Props {
   onDone: () => void;
   onRangeSetup: () => void;
+  bridgeMode?: boolean;
+  bridgeDialog?: string[];
+  finalLabel?: string;
 }
 
-const OnboardingScreen: React.FC<Props> = ({ onDone, onRangeSetup }) => {
+const OnboardingScreen: React.FC<Props> = ({ onDone, onRangeSetup, bridgeMode, bridgeDialog, finalLabel }) => {
   const slideY = useRef(new Animated.Value(-height)).current;
   const profileRef = useRef(new Profile());
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(bridgeMode ? 1 : 0);
   const [textDone, setTextDone] = useState(false);
   const [username, setUsername] = useState('');
   const [subView, setSubView] = useState<'dialog' | 'range-select'>('dialog');
@@ -49,7 +52,8 @@ const OnboardingScreen: React.FC<Props> = ({ onDone, onRangeSetup }) => {
     }).start(cb);
   };
 
-  const isFinalStep = step === DIALOG.length;
+  const lines = bridgeMode && bridgeDialog ? bridgeDialog : DIALOG;
+  const isFinalStep = step === lines.length + (bridgeMode ? 0 : 1);
 
   const handleNext = () => {
     setSkip(false);
@@ -149,28 +153,30 @@ const OnboardingScreen: React.FC<Props> = ({ onDone, onRangeSetup }) => {
         ) : isFinalStep ? (
           <>
             <AnimatedText
-              text={DIALOG[DIALOG.length - 1]}
+              text={lines[lines.length - 1]}
               style={local.text}
               skip={skip}
               onDone={() => setTextDone(true)}
             />
             <NextButton
-              onPress={() => slideAway(onRangeSetup)}
-              label="Let's go ▶"
+              onPress={() => slideAway(bridgeMode ? onDone : onRangeSetup)}
+              label={finalLabel ?? "Let's go ▶"}
               disabled={!textDone}
             />
-            <TouchableOpacity
-              onPress={() => setSubView('range-select')}
-              disabled={!textDone}
-              style={[local.secondaryBtn, { opacity: textDone ? 1 : 0.25 }]}
-            >
-              <Text style={local.secondaryText}>I already know my range</Text>
-            </TouchableOpacity>
+            {!bridgeMode && (
+              <TouchableOpacity
+                onPress={() => setSubView('range-select')}
+                disabled={!textDone}
+                style={[local.secondaryBtn, { opacity: textDone ? 1 : 0.25 }]}
+              >
+                <Text style={local.secondaryText}>I already know my range</Text>
+              </TouchableOpacity>
+            )}
           </>
         ) : (
           <>
             <AnimatedText
-              text={DIALOG[step - 1]}
+              text={lines[step - 1]}
               style={local.text}
               skip={skip}
               onDone={() => setTextDone(true)}

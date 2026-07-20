@@ -238,9 +238,6 @@ const RangeSetupScreen: React.FC<Props> = ({ onBack, onSetRange }) => {
             <Text style={[styles.titleText, { fontSize: 64 }]}>
               {trackedNote ? Pitches.displayTone(trackedNote) : '—'}
             </Text>
-            <Text style={[styles.bodyText, { color: '#ffffff44', marginTop: 8, fontSize: 12 }]}>
-              round {round} / {MAX_ROUNDS}
-            </Text>
             <TouchableOpacity style={[styles.button, { marginTop: 40 }]} onPress={handleContinue}>
               <Text style={styles.buttonText}>Continue</Text>
             </TouchableOpacity>

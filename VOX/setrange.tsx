@@ -79,21 +79,21 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
   }
 
   function nextPitch(pivot:boolean): boolean {
-    if(increasing && !pivot){
+    if(increasingRef.current && !pivot){
       failCountRef.current = 0;
       setFailCount(0);
       increment();
-    } else if(increasing && pivot){
+    } else if(increasingRef.current && pivot){
       failCountRef.current = 0;
       setFailCount(0);
-      setIncreasing(false);
       increasingRef.current = false;
+      setIncreasing(false);
       setExpected(profileRef.current.low_range);
-    } else if(!increasing && !pivot){
+    } else if(!increasingRef.current && !pivot){
       failCountRef.current = 0;
       setFailCount(0);
       decrement();
-    } else if(!increasing && pivot){
+    } else if(!increasingRef.current && pivot){
       let high = Pitches.noteToPitch(high_max);
       let low = Pitches.noteToPitch(low_max);
       const classes = Pitches.classify(high, low);
@@ -181,7 +181,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
           setHz(value.frequency); // the fqz of what you are singing
           setNote(value.tone);    // the name of the pitch you are singing. 
           let current = Grade.grade(expected.frequency, value.frequency, increasingRef.current ? 'sharp' : 'flat')
-          setAvgGrade((grade + current) / 2);
+          setAvgGrade(prev => (prev + current) / 2);
           setGrade(current);
 
       });
@@ -211,7 +211,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={styles.titleText}>Range Determination</Text>
+            <Text style={styles.titleText}>Try to sing this pitch.</Text>
             <Text style={[styles.subtitleText, { marginTop: 16 }]}>Target: {Pitches.displayName(expected)}</Text>
             <Text style={[styles.bodyText, { color: '#d5dbe7ff', marginTop: 8 }]}>
               {Pitches.displayName(Pitches.noteToPitch(high_max))} — {Pitches.displayName(Pitches.noteToPitch(low_max))}

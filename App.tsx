@@ -59,6 +59,7 @@ const App = () => {
 
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showRangeBridge, setShowRangeBridge] = useState(false);
   const [rangeSet, setRangeSet] = useState(false);
   const [currentScreen, setCurrentScreen] = useState('main');
   const [profileScreen, setProfileScreen] = useState(false);
@@ -102,9 +103,14 @@ const App = () => {
     setCurrentScreen('rangeSetup');
   };
 
+  const handleRangeSetupComplete = () => {
+    setCurrentScreen('main');
+    setShowRangeBridge(true);
+  };
+
   switch(currentScreen){
     case 'rangeSetup':
-      return <RangeSetupScreen onBack={handleGoBack} onSetRange={handleSetRangePress} />;
+      return <RangeSetupScreen onBack={handleGoBack} onSetRange={handleRangeSetupComplete} />;
     case 'setRange':
       return <SetRangeScreen onBack={handleGoBack} />;
     case 'pitchMatch':
@@ -121,6 +127,18 @@ const App = () => {
         <OnboardingScreen
           onDone={() => setShowOnboarding(false)}
           onRangeSetup={() => { setShowOnboarding(false); setCurrentScreen('rangeSetup'); }}
+        />
+      )}
+      {showRangeBridge && (
+        <OnboardingScreen
+          bridgeMode
+          bridgeDialog={[
+            "Nice work! We have a rough idea of your range.",
+            "Now let's dial it in — we'll play notes one at a time and you try to match them.",
+          ]}
+          finalLabel="Let's do it ▶"
+          onDone={() => { setShowRangeBridge(false); setCurrentScreen('setRange'); }}
+          onRangeSetup={() => {}}
         />
       )}
       {!profileScreen &&
