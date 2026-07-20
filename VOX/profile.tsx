@@ -146,6 +146,17 @@ const ProfileScreen: React.FC<ProfileProps> = ({done, onRangeSetup}) => {
     done();
   }
 
+  const handleDebugReset = () => {
+    user.low_range = Pitches.C4;
+    user.high_range = Pitches.C4;
+    user.range_set = false;
+    user.range_class = "undecided";
+    setLow_range(Pitches.C4.name);
+    setHigh_range(Pitches.C4.name);
+    setRange_class("undecided");
+    user.SaveProfile();
+  };
+
   const handleToggleAccidentals = () => {
     const next = !preferSharps;
     setPreferSharps(next);
@@ -212,6 +223,9 @@ const highRangeItems = React.useMemo(() => {
           </View>
           <TouchableOpacity style={[styles.button, {backgroundColor:"#09c9b9ff", left:10}]} onPress={onRangeSetup}>
             <Text >Determine Your Range</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.button, {backgroundColor:"#3a1a1a", borderWidth:1, borderColor:"#ff4444", left:10, marginTop:6}]} onPress={handleDebugReset}>
+            <Text style={{color:"#ff4444", fontSize:12}}>⚠ Reset Profile [DEBUG]</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.backButton, {position:'absolute', bottom:80, left:(pitchBoxWidth/2)-30}]} onPress={handleDone}>
             <Text >Done</Text>
