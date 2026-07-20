@@ -116,7 +116,10 @@ const App = () => {
   return (
     <SafeAreaView style={styles.mainContainer}>
       {showOnboarding && profileLoaded && (
-        <OnboardingScreen onDone={() => setShowOnboarding(false)} />
+        <OnboardingScreen
+          onDone={() => setShowOnboarding(false)}
+          onRangeSetup={() => { setShowOnboarding(false); setCurrentScreen('rangeSetup'); }}
+        />
       )}
       {!profileScreen &&
           <TouchableOpacity onPress={handleProfile} style={{position:'absolute'}}>
