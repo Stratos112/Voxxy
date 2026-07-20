@@ -5,13 +5,7 @@
  * August 2025
 **/
 
-//TODO: 
-// - play pitch
-// - show target
-// - if score is good enough for long enough (how to check??) - increment pitch
-// - if score is bad enough for long enough (how to check??) - say "try again!"
-// - if failed twice in a row- -> set pitch as range!! 
-// Some Kind of visual?? 
+//TODO: some kind of visual for target, and progress so far
 
 import React , {useState, useEffect, useCallback, useRef} from 'react';
 import { 
@@ -38,6 +32,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
 
   const profileRef = useRef(new Profile());
   const increasingRef = useRef(true);
+  const failCountRef = useRef(0);
   const activeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [hz, setHz] = useState(0);
@@ -53,7 +48,6 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
   const [listening, setListening] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'active' | 'result' | 'done'>('idle');
   
-  Sound.setCategory('Playback');
   
   function clearActiveTimer() {
     if (activeTimerRef.current) {
@@ -66,6 +60,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
     clearActiveTimer();
     setListening(false);
     setAvgGrade(0.0);
+    setGrade(0);
     setPhase('active');
     expected.play();
     activeTimerRef.current = setTimeout(() => {
@@ -86,14 +81,17 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
 
   function nextPitch(pivot:boolean): boolean {
     if(increasing && !pivot){
+      failCountRef.current = 0;
       setFailCount(0);
       increment();
     } else if(increasing && pivot){
+      failCountRef.current = 0;
       setFailCount(0);
       setIncreasing(false);
       increasingRef.current = false;
       setExpected(profileRef.current.low_range);
     } else if(!increasing && !pivot){
+      failCountRef.current = 0;
       setFailCount(0);
       decrement();
     } else if(!increasing && pivot){
@@ -144,22 +142,24 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack }) => {
               if (latestAvgGrade >= 70) {
                   setMessage("Nice! Let's increment again.");
                   nextPitch(false);
-              } else if(failCount >= 3){
+              } else if(failCountRef.current >= 3){
                   setMessage("That's your top. Going lower.");
                   done = nextPitch(true);
               } else {
                   setMessage(latestAvgGrade.toFixed(0) + "% — Try again [insert breathing/vocalization tip]");
-                  setFailCount(failCount + 1);
+                  failCountRef.current += 1;
+                  setFailCount(failCountRef.current);
               }
               if (!done) activeTimerRef.current = setTimeout(() => setPhase('idle'), 2000);
               return latestAvgGrade;
           });
       }, 3000);
-  }, [setListening, setAvgGrade, failCount]);
+  }, [setListening, setAvgGrade]);
 
 
   //playback effect
   useEffect(() =>{
+    Sound.setCategory('Playback');
     Pitches.loadAll();
     const loadProfile = async () => {
       await profileRef.current.RetreiveProfile();
