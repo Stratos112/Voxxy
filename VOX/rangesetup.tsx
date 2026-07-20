@@ -8,7 +8,6 @@ import styles from './UI/styles';
 
 const DESC_SOLFEGE  = ['do', 'ti', 'la', 'so', 'la', 'ti', 'do'];
 const ASC_SOLFEGE   = ['do', 'mi', 'so', 'mi', 'do'];
-const NOTE_MS       = 1100;
 const LISTEN_MS     = 9000;
 const MIN_HZ        = 75;
 const MAX_HZ        = 1300;
@@ -43,6 +42,7 @@ interface Props {
 const RangeSetupScreen: React.FC<Props> = ({ onBack, onSetRange }) => {
   const profileRef      = useRef(new Profile());
   const timersRef       = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const abortRef        = useRef(false);
   const seqStartRef     = useRef<Pitch>(Pitches.C4);
   const directionRef    = useRef<Direction>('descending');
   const lowestHzRef     = useRef(Infinity);
@@ -69,6 +69,7 @@ const RangeSetupScreen: React.FC<Props> = ({ onBack, onSetRange }) => {
   }, []);
 
   function clearTimers() {
+    abortRef.current = true;
     timersRef.current.forEach(clearTimeout);
     timersRef.current = [];
   }
@@ -86,6 +87,7 @@ const RangeSetupScreen: React.FC<Props> = ({ onBack, onSetRange }) => {
     lowestHzRef.current  = Infinity;
     highestHzRef.current = 0;
     clearTimers();
+    abortRef.current = false;
     setDirection(dir);
     setRound(roundNum);
     setSolfegeIdx(-1);
@@ -94,22 +96,25 @@ const RangeSetupScreen: React.FC<Props> = ({ onBack, onSetRange }) => {
     else setHighestNote('');
     setPhase('playing');
 
-    seq.forEach((pitch, i) => {
-      const t = setTimeout(() => { pitch.play(); setSolfegeIdx(i); }, i * NOTE_MS);
-      timersRef.current.push(t);
-    });
+    const playChain = (index: number) => {
+      if (abortRef.current || index >= seq.length) {
+        if (!abortRef.current) {
+          setSolfegeIdx(-1);
+          setPhase('listening');
+          setListening(true);
+          const listenEnd = setTimeout(() => {
+            setListening(false);
+            setPhase('result');
+          }, LISTEN_MS);
+          timersRef.current.push(listenEnd);
+        }
+        return;
+      }
+      setSolfegeIdx(index);
+      seq[index].play(0, () => playChain(index + 1));
+    };
 
-    const listenStart = setTimeout(() => {
-      setSolfegeIdx(-1);
-      setPhase('listening');
-      setListening(true);
-      const listenEnd = setTimeout(() => {
-        setListening(false);
-        setPhase('result');
-      }, LISTEN_MS);
-      timersRef.current.push(listenEnd);
-    }, seq.length * NOTE_MS);
-    timersRef.current.push(listenStart);
+    playChain(0);
   }
 
   function finishGame(high: Pitch) {

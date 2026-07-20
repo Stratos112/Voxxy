@@ -42,7 +42,7 @@ export class Pitch {
     }
 
     // Modified play() method with retry logic
-    public play(retryCount: number = 0) {
+    public play(retryCount: number = 0, onComplete?: () => void) {
       let max = 5;
       let delay = 1000;
       if (!this.sound) {
@@ -57,22 +57,24 @@ export class Pitch {
           if (success) {
             console.log(`-- played successfully --`);
             this.sound?.setCurrentTime(0); // Reset for next play
+            onComplete?.();
           } else {
             console.warn(`[Attempt ${retryCount + 1}] couldn't play (probably encoding).`);
             this.sound?.setCurrentTime(0);
 
             if (retryCount < max) {
               setTimeout(() => {
-                this.play(retryCount + 1);
+                this.play(retryCount + 1, onComplete);
               }, delay);
             } else {
               console.error(`Failed to play ${this.name} after ${max + 1} attempts. Giving up.`);
+              onComplete?.();
             }
           }
         });
       } else {
-          // This happens if load() failed and set this.sound = null
           console.error(`Fatal Error: Cannot play ${this.name}. Sound failed to initialize.`);
+          onComplete?.();
       }
     }
 }
