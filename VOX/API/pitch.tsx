@@ -41,41 +41,65 @@ export class Pitch {
       }
     }
 
-    // Modified play() method with retry logic
-    public play(retryCount: number = 0, onComplete?: () => void) {
-      let max = 5;
-      let delay = 1000;
+    public play(duration?: number, onComplete?: () => void) {
       if (!this.sound) {
-          console.log(`needed to reload ${this.name}`);
-          this.sound = this.load();
+        console.log(`needed to reload ${this.name}`);
+        this.sound = this.load();
+      }
+      if (!this.sound) {
+        console.error(`Fatal: Cannot play ${this.name}. Sound failed to initialize.`);
+        onComplete?.();
+        return;
       }
 
-      if (this.sound) {
-        this.sound.play((success) => {
-          console.log(`[Attempt ${retryCount + 1}] trying to play ${this.name}`);
+      const fileDurationMs = (this.sound.getDuration() ?? 0) * 1000;
+      const shouldCut = duration !== undefined && fileDurationMs > 0 && duration < fileDurationMs;
 
-          if (success) {
-            console.log(`-- played successfully --`);
-            this.sound?.setCurrentTime(0); // Reset for next play
-            onComplete?.();
-          } else {
-            console.warn(`[Attempt ${retryCount + 1}] couldn't play (probably encoding).`);
-            this.sound?.setCurrentTime(0);
-
-            if (retryCount < max) {
-              setTimeout(() => {
-                this.play(retryCount + 1, onComplete);
-              }, delay);
-            } else {
-              console.error(`Failed to play ${this.name} after ${max + 1} attempts. Giving up.`);
-              onComplete?.();
-            }
-          }
-        });
+      if (shouldCut) {
+        const cutAborted = { value: false };
+        this._retry(0, undefined, cutAborted);
+        setTimeout(() => {
+          cutAborted.value = true;
+          this._softCut(onComplete);
+        }, Math.max(0, duration - 80));
       } else {
-          console.error(`Fatal Error: Cannot play ${this.name}. Sound failed to initialize.`);
-          onComplete?.();
+        this._retry(0, onComplete);
       }
+    }
+
+    private _retry(retryCount: number, onComplete?: () => void, aborted?: { value: boolean }) {
+      const max = 5;
+      this.sound.play((success) => {
+        if (aborted?.value) return;
+        console.log(`[Attempt ${retryCount + 1}] ${success ? 'played' : 'failed'}: ${this.name}`);
+        this.sound?.setCurrentTime(0);
+        if (success) {
+          onComplete?.();
+        } else if (retryCount < max) {
+          setTimeout(() => this._retry(retryCount + 1, onComplete, aborted), 1000);
+        } else {
+          console.error(`Failed to play ${this.name} after ${max + 1} attempts.`);
+          onComplete?.();
+        }
+      });
+    }
+
+    private _softCut(onDone?: () => void) {
+      if (!this.sound) { onDone?.(); return; }
+      const STEPS = 5;
+      const STEP_MS = 16;
+      let step = 0;
+      const fade = setInterval(() => {
+        step++;
+        this.sound?.setVolume(Math.max(0, 1 - step / STEPS));
+        if (step >= STEPS) {
+          clearInterval(fade);
+          this.sound?.stop(() => {
+            this.sound?.setVolume(1);
+            onDone?.();
+          });
+        }
+      }, STEP_MS);
     }
 }
 
@@ -472,6 +496,48 @@ export class Pitches {
   // used to translate frequency to position.
   //The box is 500px tall.
   //vocal range from c6(1046.502) to c2 (65.40639)
+  // Sequential playback — each note waits for the previous to finish (or duration ms).
+  // onEachNote fires just before each note plays. Returns an abort function.
+  public static playMono(
+    sequence: Pitch[],
+    duration?: number,
+    onComplete?: () => void,
+    onEachNote?: (index: number, pitch: Pitch) => void
+  ): () => void {
+    let aborted = false;
+    const chain = (index: number) => {
+      if (aborted || index >= sequence.length) {
+        if (!aborted) onComplete?.();
+        return;
+      }
+      onEachNote?.(index, sequence[index]);
+      sequence[index].play(duration, () => chain(index + 1));
+    };
+    chain(0);
+    return () => { aborted = true; };
+  }
+
+  // Polyphonic playback — notes start every intervalMs, allowed to overlap.
+  // Returns an abort function.
+  public static playPoly(
+    sequence: Pitch[],
+    intervalMs: number,
+    duration?: number,
+    onComplete?: () => void
+  ): () => void {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    let aborted = false;
+    sequence.forEach((pitch, i) => {
+      const t = setTimeout(() => { if (!aborted) pitch.play(duration); }, i * intervalMs);
+      timers.push(t);
+    });
+    if (onComplete) {
+      const totalMs = (sequence.length - 1) * intervalMs + (duration ?? 2000);
+      timers.push(setTimeout(() => { if (!aborted) onComplete(); }, totalMs));
+    }
+    return () => { aborted = true; timers.forEach(clearTimeout); };
+  }
+
   public static fqzToPosition(freq: number){
     const scaleMax = heightRange;
 

@@ -42,7 +42,7 @@ interface Props {
 const RangeSetupScreen: React.FC<Props> = ({ onBack, onSetRange }) => {
   const profileRef      = useRef(new Profile());
   const timersRef       = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const abortRef        = useRef(false);
+  const abortPlayRef    = useRef<(() => void) | null>(null);
   const seqStartRef     = useRef<Pitch>(Pitches.C4);
   const directionRef    = useRef<Direction>('descending');
   const lowestHzRef     = useRef(Infinity);
@@ -69,7 +69,8 @@ const RangeSetupScreen: React.FC<Props> = ({ onBack, onSetRange }) => {
   }, []);
 
   function clearTimers() {
-    abortRef.current = true;
+    abortPlayRef.current?.();
+    abortPlayRef.current = null;
     timersRef.current.forEach(clearTimeout);
     timersRef.current = [];
   }
@@ -87,7 +88,6 @@ const RangeSetupScreen: React.FC<Props> = ({ onBack, onSetRange }) => {
     lowestHzRef.current  = Infinity;
     highestHzRef.current = 0;
     clearTimers();
-    abortRef.current = false;
     setDirection(dir);
     setRound(roundNum);
     setSolfegeIdx(-1);
@@ -96,25 +96,21 @@ const RangeSetupScreen: React.FC<Props> = ({ onBack, onSetRange }) => {
     else setHighestNote('');
     setPhase('playing');
 
-    const playChain = (index: number) => {
-      if (abortRef.current || index >= seq.length) {
-        if (!abortRef.current) {
-          setSolfegeIdx(-1);
-          setPhase('listening');
-          setListening(true);
-          const listenEnd = setTimeout(() => {
-            setListening(false);
-            setPhase('result');
-          }, LISTEN_MS);
-          timersRef.current.push(listenEnd);
-        }
-        return;
-      }
-      setSolfegeIdx(index);
-      seq[index].play(0, () => playChain(index + 1));
-    };
-
-    playChain(0);
+    abortPlayRef.current = Pitches.playMono(
+      seq,
+      923,
+      () => {
+        setSolfegeIdx(-1);
+        setPhase('listening');
+        setListening(true);
+        const listenEnd = setTimeout(() => {
+          setListening(false);
+          setPhase('result');
+        }, LISTEN_MS);
+        timersRef.current.push(listenEnd);
+      },
+      (index) => setSolfegeIdx(index)
+    );
   }
 
   function finishGame(high: Pitch) {
