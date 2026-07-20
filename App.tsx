@@ -18,6 +18,7 @@ import {
  } from 'react-native';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
+import { Pitches } from './VOX/API/pitch';
 import styles, { pitchBoxWidth } from './VOX/UI/styles';
 import RangeGate from './VOX/UI/rangeGate';
 import PitchMatchScreen from './VOX//pitchmatch';

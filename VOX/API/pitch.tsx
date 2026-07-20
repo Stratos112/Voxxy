@@ -294,7 +294,7 @@ export class Pitches {
 
   public static toTrack(pitch: Pitch): Track {
     const url = Platform.OS === 'android'
-      ? `asset:///${pitch.file}`
+      ? `file:///android_asset/${pitch.file}`
       : pitch.file;
     return { id: pitch.name, url, title: pitch.name, artist: 'Voxxy' };
   }
@@ -449,8 +449,11 @@ export class Pitches {
     };
 
     const setup = async () => {
+      console.log('[playMono] reset, seq:', sequence.map(p => p.name).join(','));
       await TrackPlayer.reset();
-      await TrackPlayer.add(sequence.map(p => Pitches.toTrack(p)));
+      const tracks = sequence.map(p => Pitches.toTrack(p));
+      console.log('[playMono] first track url:', tracks[0]?.url);
+      await TrackPlayer.add(tracks);
 
       if (duration === undefined) {
         listeners.push(TrackPlayer.addEventListener(Event.PlaybackTrackChanged, ({ nextTrack }) => {
@@ -484,11 +487,13 @@ export class Pitches {
           if (!aborted) { cleanup(); onComplete?.(); TrackPlayer.reset(); }
         }, sequence.length * duration));
 
+        console.log('[playMono] calling play()');
         await TrackPlayer.play();
+        console.log('[playMono] play() returned');
       }
     };
 
-    setup().catch(e => console.error('playMono error:', e));
+    setup().catch(e => console.error('[playMono] setup error:', e));
 
     return () => {
       aborted = true;
