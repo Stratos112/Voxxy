@@ -153,7 +153,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
       <View style={{ flexDirection: 'row', marginBottom: 0 }}>
         <Text style={[styles.titleText, { marginBottom: 2 }]}>Pitch Match</Text>
         <TouchableOpacity
-          style={[styles.button, { width: '40%', height: '80%', margin: 2, marginLeft: 20, paddingVertical: 5 }]}
+          style={[styles.primaryButton, { width: '40%', height: '80%', margin: 2, marginLeft: 20, paddingVertical: 5 }]}
           onPress={newTarget}
         >
           <Text style={styles.backButtonText}>{started ? 'New Target' : 'Start'}</Text>

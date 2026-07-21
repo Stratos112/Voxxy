@@ -222,8 +222,8 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack, onComplete }) =
             <Text style={[styles.bodyText, { color: '#d5dbe7ff', marginTop: 8 }]}>
               {Pitches.displayName(Pitches.noteToPitch(high_max))} — {Pitches.displayName(Pitches.noteToPitch(low_max))}
             </Text>
-            <TouchableOpacity style={[styles.button, { marginTop: 40 }]} onPress={start}>
-              <Text style={styles.buttonText}>Start!</Text>
+            <TouchableOpacity style={[styles.primaryButton, { marginTop: 40 }]} onPress={start}>
+              <Text style={styles.backButtonText}>Start!</Text>
             </TouchableOpacity>
           </View>
         </>

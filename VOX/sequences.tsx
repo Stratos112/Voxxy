@@ -41,8 +41,8 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
           {MELODY[step].length > 0 ? MELODY[step].join('  ') : '—'}
         </Text>
       </View>
-      <TouchableOpacity style={[styles.button, { alignSelf: 'center', marginBottom: 40 }]} onPress={advance}>
-        <Text style={styles.buttonText}>Next</Text>
+      <TouchableOpacity style={[styles.primaryButton, { alignSelf: 'center', marginBottom: 40 }]} onPress={advance}>
+        <Text style={styles.backButtonText}>Next</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );

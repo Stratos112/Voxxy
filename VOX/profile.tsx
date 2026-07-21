@@ -231,8 +231,8 @@ const highRangeItems = React.useMemo(() => {
           <TouchableOpacity style={[styles.button, {backgroundColor:"transparent", borderWidth:1, borderColor:"#2bc0a0ff", left:10, marginTop:6}]} onPress={onShowTutorial}>
             <Text style={{color:"#2bc0a0ff", fontSize:13}}>Show tutorial</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.backButton, {position:'absolute', bottom:80, left:(pitchBoxWidth/2)-30}]} onPress={handleDone}>
-            <Text >Done</Text>
+          <TouchableOpacity style={[styles.primaryButton, {position:'absolute', bottom:80, left:(pitchBoxWidth/2)-30}]} onPress={handleDone}>
+            <Text style={styles.backButtonText}>Done</Text>
           </TouchableOpacity>
         </View>
     </View>

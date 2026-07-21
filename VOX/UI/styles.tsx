@@ -111,8 +111,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
-    alignItems: 'center', // This centers the text horizontally inside the button
+    alignItems: 'center',
     margin: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.65,
+    shadowRadius: 10,
+    elevation: 20,
   },
   backButton: {
     width: 36,
@@ -122,8 +127,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 45,
     marginLeft: 10,
-    backgroundColor: '#1e7a50ff',
+    backgroundColor: '#04756cff',
     borderRadius: 6,
+  },
+  primaryButton: {
+    width: '80%',
+    backgroundColor: '#2cf7baff',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    margin: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.65,
+    shadowRadius: 10,
+    elevation: 20,
   },
   settingsButton: {
     justifyContent:'flex-end',
@@ -175,6 +194,7 @@ const styles = StyleSheet.create({
   backButtonText: {
     color: '#000000ff',
     fontSize: 16,
+    fontWeight: '700',
   },
   
 
