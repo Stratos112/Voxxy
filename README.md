@@ -122,8 +122,8 @@ Reconnect USB if the prompt doesn't appear.
 
 Edit `android/app/build.gradle`:
 ```groovy
-versionCode 2        // integer, increment by 1 each release (Play Store requires unique)
-versionName "1.1.1"    // human-readable string shown to users
+versionCode 1        // integer, increment by 1 each release (Play Store requires unique)
+versionName "0.0.1"    // human-readable string shown to users
 ```
 
 Then build a release APK:

@@ -13,12 +13,23 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { PitchDetector } from 'react-native-pitch-detector';
-import styles, { pitchBoxHeight, pitchBoxWidth, heightRange } from './UI/styles';
+import styles, { pitchBoxHeight, pitchBoxWidth } from './UI/styles';
 import { Pitch, Pitches } from './API/pitch';
 import { Profile } from './profile';
 
 const MAX_TAIL = 120;
-const TICK_SKIP = 2; // only update state every Nth detector tick
+const TICK_SKIP = 2;
+const GRID_MARGIN = 10;
+
+// Maps freq to `top` pixel within pitchBox.
+// hi freq → GRID_MARGIN (near top), lo freq → pitchBoxHeight - 1 - GRID_MARGIN (near bottom).
+// Guard against hi <= lo to prevent divide-by-zero.
+function freqToY(freq: number, lo: number, hi: number): number {
+  if (hi <= lo) return Math.round(pitchBoxHeight / 2);
+  const clamped = Math.min(Math.max(freq, lo), hi);
+  const norm = (Math.log(clamped) - Math.log(lo)) / (Math.log(hi) - Math.log(lo));
+  return Math.round(GRID_MARGIN + (1 - norm) * (pitchBoxHeight - 1 - 2 * GRID_MARGIN));
+}
 
 interface PitchMatchScreenProps {
   onBack: () => void;
@@ -26,18 +37,15 @@ interface PitchMatchScreenProps {
 
 const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
   const [userProfile, setUserProfile] = useState(new Profile());
-  const [position, setPosition] = useState(250);
+  const [position, setPosition] = useState(Math.round(pitchBoxHeight / 2));
   const [hz, setHz] = useState(0);
   const [note, setNote] = useState('');
   const [pitchLine, setPitchLine] = useState<number[]>([]);
-
   const [started, setStarted] = useState(false);
   const [hasTarget, setHasTarget] = useState(false);
   const [targetPitch, setTargetPitch] = useState<Pitch | null>(null);
 
-  const targetAnimY = useRef(new Animated.Value(pitchBoxHeight / 2)).current;
-  // stable animated value for label so we don't recreate it every render
-  const labelAnimY = useRef(new Animated.Value(pitchBoxHeight / 2 - 20)).current;
+  const targetAnimY = useRef(new Animated.Value(-100)).current;
   const tickRef = useRef(0);
 
   useEffect(() => {
@@ -49,6 +57,16 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
     loadProfile();
   }, []);
 
+  // Derive lo/hi each render so they're always current.
+  const lo = userProfile.low_range?.frequency ?? 65.41;
+  const hi = userProfile.high_range?.frequency ?? 1046.5;
+
+  // Refs so the detector callback always reads the latest lo/hi without re-subscribing.
+  const loRef = useRef(lo);
+  const hiRef = useRef(hi);
+  loRef.current = lo;
+  hiRef.current = hi;
+
   useEffect(() => {
     if (!started) return;
     let subscription: any;
@@ -58,7 +76,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
         tickRef.current += 1;
         if (tickRef.current % TICK_SKIP !== 0) return;
 
-        const pos = heightRange - Pitches.fqzToPosition(value.frequency) - 3;
+        const pos = freqToY(value.frequency, loRef.current, hiRef.current) - 3;
         setPitchLine(prev => {
           const next = [pos + 1, ...prev];
           return next.length > MAX_TAIL ? next.slice(0, MAX_TAIL) : next;
@@ -79,50 +97,42 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
   }, [started]);
 
   const userRange: Pitch[] = useMemo(() => {
-    const start = userProfile.low_range;
-    const end = userProfile.high_range;
-    if (!start || !end) return [];
-    return Pitches.filteredPitches().filter(
-      p => p.frequency >= start.frequency && p.frequency <= end.frequency
-    );
+    if (hi <= lo) return [];
+    return Pitches.filteredPitches().filter(p => p.frequency >= lo && p.frequency <= hi);
   }, [userProfile]);
 
-  // pitch grid never changes — render once
-  const pitchGrid = useMemo(() => (
-    Pitches.allPitches.map(p => (
-      <View
-        key={p.name}
-        style={[styles.pitchGrid, { top: heightRange - Pitches.fqzToPosition(p.frequency) }]}
-      />
-    ))
-  ), []);
+  const pitchGrid = useMemo(() => {
+    if (hi <= lo) return null;
+    return Pitches.filteredPitches()
+      .filter(p => p.frequency >= lo && p.frequency <= hi)
+      .map(p => (
+        <View
+          key={p.name}
+          style={[styles.pitchGrid, { top: freqToY(p.frequency, lo, hi) }]}
+        />
+      ));
+  }, [userProfile]);
 
   function newTarget() {
     if (userRange.length === 0) return;
     const pick = userRange[Math.floor(Math.random() * userRange.length)];
-    const finalY = (heightRange - 2) - Pitches.fqzToPosition(pick.frequency);
-    const midY   = (heightRange - 2) / 2;
-    // slide from bottom if target is in top half, from top if in bottom half
-    const startY = finalY < midY ? heightRange : 0;
 
+    // Center the 5px bar on the 1px grid line: bar top = gridY - 2, bar center = gridY + 0.5.
+    const finalY = freqToY(pick.frequency, lo, hi) - 2;
+
+    // Enter from whichever edge gives more travel distance.
+    const startY = finalY < pitchBoxHeight / 2 ? pitchBoxHeight + 10 : -10;
+
+    targetAnimY.stopAnimation();
     targetAnimY.setValue(startY);
-    labelAnimY.setValue(startY - 20);
-
     setStarted(true);
     setHasTarget(false);
 
-    Animated.parallel([
-      Animated.timing(targetAnimY, {
-        toValue: finalY,
-        duration: 600,
-        useNativeDriver: false,
-      }),
-      Animated.timing(labelAnimY, {
-        toValue: finalY - 20,
-        duration: 600,
-        useNativeDriver: false,
-      }),
-    ]).start(() => {
+    Animated.timing(targetAnimY, {
+      toValue: finalY,
+      duration: 600,
+      useNativeDriver: false,
+    }).start(() => {
       setTargetPitch(pick);
       setHasTarget(true);
       Pitches.playSingle(pick);
@@ -149,14 +159,15 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
         {pitchGrid}
 
         {started && (
-          <>
-            <Animated.View style={[styles.targetLine, { top: targetAnimY }]} />
-            {hasTarget && targetPitch && (
-              <Animated.Text style={[styles.targetText, { top: labelAnimY }]}>
-                {Pitches.displayName(targetPitch)}
-              </Animated.Text>
-            )}
-          </>
+          <Animated.View style={[styles.targetLine, { top: targetAnimY }]} />
+        )}
+
+        {hasTarget && targetPitch && (
+          <Text style={[styles.targetText, {
+            top: Math.max(2, freqToY(targetPitch.frequency, lo, hi) - 22),
+          }]}>
+            {Pitches.displayName(targetPitch)}
+          </Text>
         )}
 
         {started && <View style={[styles.pitchSquare, { top: position }]} />}
@@ -170,7 +181,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
                 position: 'absolute',
                 top: item,
                 left: pitchBoxWidth / 2 - index - 12,
-                opacity: 1 - index / (MAX_TAIL * 0.5),
+                opacity: Math.max(0, 1 - index / (MAX_TAIL * 0.5)),
               },
             ]}
           />

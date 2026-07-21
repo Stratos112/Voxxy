@@ -430,6 +430,11 @@ export class Pitches {
     this.maxFreq = user.high_range.frequency;
   }
 
+  public static setRangeDirect(low: number, high: number) {
+    this.minFreq = low;
+    this.maxFreq = high;
+  }
+
   // used to translate frequency to position.
   //The box is 500px tall.
   //vocal range from c6(1046.502) to c2 (65.40639)
