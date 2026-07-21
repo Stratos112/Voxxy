@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Animated,
+  Image,
   SafeAreaView,
   Text,
   View,
@@ -142,7 +143,11 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
   return (
     <SafeAreaView style={styles.pitchmatchContainer}>
       <TouchableOpacity style={styles.backButton} onPress={onBack}>
-        <Text style={styles.backButtonText}>Go Back</Text>
+        <Image
+          source={require('../static/back-arrow.png')}
+          style={{ width: 20, height: 20, tintColor: '#ffffff' }}
+          resizeMode="contain"
+        />
       </TouchableOpacity>
 
       <View style={{ flexDirection: 'row', marginBottom: 0 }}>

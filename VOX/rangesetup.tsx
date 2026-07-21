@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
+import { Image, SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
 import { PitchDetector } from 'react-native-pitch-detector';
 import { Pitch, Pitches } from './API/pitch';
 import { Profile } from './profile';
@@ -185,8 +185,12 @@ const RangeSetupScreen: React.FC<Props> = ({ onBack, onSetRange }) => {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#16083dff' }}>
-      <TouchableOpacity style={[styles.backButton, { position: 'absolute', right: 10, top: 10 }]} onPress={onBack}>
-        <Text style={styles.backButtonText}>Go Back</Text>
+      <TouchableOpacity style={[styles.backButton, { position: 'absolute', left: 10, top: 10 }]} onPress={onBack}>
+        <Image
+          source={require('../static/back-arrow.png')}
+          style={{ width: 20, height: 20, tintColor: '#ffffff' }}
+          resizeMode="contain"
+        />
       </TouchableOpacity>
 
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 30 }}>

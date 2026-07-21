@@ -8,9 +8,10 @@
 //TODO: some kind of visual for target, and progress so far
 
 import React , {useState, useEffect, useCallback, useRef} from 'react';
-import { 
-  SafeAreaView, 
-  Text, 
+import {
+  Image,
+  SafeAreaView,
+  Text,
   View,
   TouchableOpacity,
  } from 'react-native';
@@ -208,8 +209,12 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack, onComplete }) =
 
       {phase === 'idle' && (
         <>
-          <TouchableOpacity style={[styles.backButton, { position: 'absolute', right: 10 }]} onPress={onBack}>
-            <Text style={styles.backButtonText}>Go Back</Text>
+          <TouchableOpacity style={[styles.backButton, { position: 'absolute', left: 10 }]} onPress={onBack}>
+            <Image
+              source={require('../static/back-arrow.png')}
+              style={{ width: 20, height: 20, tintColor: '#ffffff' }}
+              resizeMode="contain"
+            />
           </TouchableOpacity>
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
             <Text style={styles.titleText}>Try to sing this pitch.</Text>
