@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { PitchDetector } from 'react-native-pitch-detector';
+import TrackPlayer, { Event } from 'react-native-track-player';
 import styles, { pitchBoxHeight, pitchBoxWidth } from './UI/styles';
 import { Pitch, Pitches } from './API/pitch';
 import { Grade } from './API/grade';
@@ -22,6 +23,8 @@ import { Profile } from './profile';
 const MAX_TAIL = 120;
 const TICK_SKIP = 2;
 const GRID_MARGIN = 10;
+const ROLLING_N = 8;
+const ZOOM_ALPHA = 0.05;
 
 const BANDS = [
   { min: 96, color: '#b8f0ff' }, // perfect — diamond (icy blue-white)
@@ -40,9 +43,7 @@ function bandColor(score: number): string {
   return BANDS[BANDS.length - 1].color;
 }
 
-// Maps freq to `top` pixel within pitchBox.
-// hi freq → GRID_MARGIN (near top), lo freq → pitchBoxHeight - 1 - GRID_MARGIN (near bottom).
-// Guard against hi <= lo to prevent divide-by-zero.
+// hi → top=GRID_MARGIN, lo → top=pitchBoxHeight-1-GRID_MARGIN
 function freqToY(freq: number, lo: number, hi: number): number {
   if (hi <= lo) return Math.round(pitchBoxHeight / 2);
   const clamped = Math.min(Math.max(freq, lo), hi);
@@ -56,19 +57,28 @@ interface PitchMatchScreenProps {
 
 const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
   const [userProfile, setUserProfile] = useState(new Profile());
-  const [position, setPosition] = useState(Math.round(pitchBoxHeight / 2));
   const [hz, setHz] = useState(0);
   const [note, setNote] = useState('');
-  const [pitchLine, setPitchLine] = useState<Array<{top: number, color: string}>>([]);
+  const [pitchLine, setPitchLine] = useState<Array<{freq: number, color: string}>>([]);
   const [currentColor, setCurrentColor] = useState('#ffffff');
   const [started, setStarted] = useState(false);
   const [hasTarget, setHasTarget] = useState(false);
+  const [barVisible, setBarVisible] = useState(false);
   const [targetPitch, setTargetPitch] = useState<Pitch | null>(null);
+  const [displayLo, setDisplayLo] = useState(65.41);
+  const [displayHi, setDisplayHi] = useState(1046.5);
 
   const targetAnimY = useRef(new Animated.Value(-100)).current;
   const tickRef = useRef(0);
   const targetPitchRef = useRef<Pitch | null>(null);
   const hasTargetRef = useRef(false);
+  const displayLoRef = useRef(65.41);
+  const displayHiRef = useRef(1046.5);
+  const loRef = useRef(65.41);
+  const hiRef = useRef(1046.5);
+  const recentFreqsRef = useRef<number[]>([]);
+  const animLo = useRef(new Animated.Value(65.41)).current;
+  const animHi = useRef(new Animated.Value(1046.5)).current;
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -79,15 +89,38 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
     loadProfile();
   }, []);
 
-  // Derive lo/hi each render so they're always current.
   const lo = userProfile.low_range?.frequency ?? 65.41;
   const hi = userProfile.high_range?.frequency ?? 1046.5;
-
-  // Refs so the detector callback always reads the latest lo/hi without re-subscribing.
-  const loRef = useRef(lo);
-  const hiRef = useRef(hi);
   loRef.current = lo;
   hiRef.current = hi;
+
+  // Sync Animated range to user's full range when profile loads (not mid-game)
+  useEffect(() => {
+    if (!hasTargetRef.current) {
+      animLo.setValue(lo);
+      animHi.setValue(hi);
+    }
+  }, [lo, hi]);
+
+  // Wire listeners once — they are the single source of truth for displayLo/Hi state and refs
+  useEffect(() => {
+    const subLo = animLo.addListener(({ value }) => {
+      displayLoRef.current = value;
+      setDisplayLo(value);
+      // Keep target bar locked to its pitch as range shifts
+      if (targetPitchRef.current) {
+        targetAnimY.setValue(freqToY(targetPitchRef.current.frequency, value, displayHiRef.current) - 2);
+      }
+    });
+    const subHi = animHi.addListener(({ value }) => {
+      displayHiRef.current = value;
+      setDisplayHi(value);
+    });
+    return () => {
+      animLo.removeListener(subLo);
+      animHi.removeListener(subHi);
+    };
+  }, []);
 
   useEffect(() => {
     if (!started) return;
@@ -98,22 +131,42 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
         tickRef.current += 1;
         if (tickRef.current % TICK_SKIP !== 0) return;
 
-        const pos = freqToY(value.frequency, loRef.current, hiRef.current) - 3;
-
         let color = '#ffffff';
+
         if (hasTargetRef.current && targetPitchRef.current && value.frequency > 0) {
           const score = Grade.grade(targetPitchRef.current.frequency, value.frequency);
           color = bandColor(score);
+
+          // Rolling zoom: gently close in on target as user gets closer
+          recentFreqsRef.current = [value.frequency, ...recentFreqsRef.current].slice(0, ROLLING_N);
+          const avg = recentFreqsRef.current.reduce((a, b) => a + b, 0) / recentFreqsRef.current.length;
+
+          const tf = targetPitchRef.current.frequency;
+          // Hard floor/ceiling: never zoom past ±2 semitones from target
+          const hardLo = tf * Math.pow(2, -2 / 12);
+          const hardHi = tf * Math.pow(2,  2 / 12);
+
+          // Desired range: encompass both user's rolling avg and the target, with breathing room
+          const naturalLo = Math.min(avg, tf) * Math.pow(2, -0.5 / 12);
+          const naturalHi = Math.max(avg, tf) * Math.pow(2,  0.5 / 12);
+          const desiredLo = Math.max(hardLo, Math.min(naturalLo, loRef.current));
+          const desiredHi = Math.min(hardHi, Math.max(naturalHi, hiRef.current));
+
+          const newLo = displayLoRef.current + (desiredLo - displayLoRef.current) * ZOOM_ALPHA;
+          const newHi = displayHiRef.current + (desiredHi - displayHiRef.current) * ZOOM_ALPHA;
+
+          // setValue triggers listeners → updates refs, state, and targetAnimY
+          animLo.setValue(newLo);
+          animHi.setValue(newHi);
         }
 
         setPitchLine(prev => {
-          const next = [{top: pos + 1, color}, ...prev];
+          const next = [{ freq: value.frequency, color }, ...prev];
           return next.length > MAX_TAIL ? next.slice(0, MAX_TAIL) : next;
         });
         setCurrentColor(color);
         setHz(value.frequency);
         setNote(value.tone);
-        setPosition(pos);
       });
     } catch (e) {
       console.error('Failed to start pitch detector:', e);
@@ -131,46 +184,61 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
     return Pitches.filteredPitches().filter(p => p.frequency >= lo && p.frequency <= hi);
   }, [userProfile]);
 
+  // Grid re-renders as display range changes during zoom
   const pitchGrid = useMemo(() => {
-    if (hi <= lo) return null;
+    if (displayHi <= displayLo) return null;
     return Pitches.filteredPitches()
-      .filter(p => p.frequency >= lo && p.frequency <= hi)
+      .filter(p => p.frequency >= displayLo && p.frequency <= displayHi)
       .map(p => (
         <View
           key={p.name}
-          style={[styles.pitchGrid, { top: freqToY(p.frequency, lo, hi) }]}
+          style={[styles.pitchGrid, { top: freqToY(p.frequency, displayLo, displayHi) }]}
         />
       ));
-  }, [userProfile]);
+  }, [displayLo, displayHi]);
 
   function newTarget() {
     if (userRange.length === 0) return;
     const pick = userRange[Math.floor(Math.random() * userRange.length)];
 
-    // Center the 5px bar on the 1px grid line: bar top = gridY - 2, bar center = gridY + 0.5.
-    const finalY = freqToY(pick.frequency, lo, hi) - 2;
-
-    // Enter from whichever edge gives more travel distance.
-    const startY = finalY < pitchBoxHeight / 2 ? pitchBoxHeight + 10 : -10;
-
-    targetAnimY.stopAnimation();
-    targetAnimY.setValue(startY);
-    setStarted(true);
     hasTargetRef.current = false;
     setHasTarget(false);
+    setBarVisible(false);
+    recentFreqsRef.current = [];
+    setPitchLine([]);
 
-    Animated.timing(targetAnimY, {
-      toValue: finalY,
-      duration: 600,
-      useNativeDriver: false,
-    }).start(() => {
-      targetPitchRef.current = pick;
-      hasTargetRef.current = true;
-      setTargetPitch(pick);
-      setHasTarget(true);
-      Pitches.playSingle(pick);
+    // Ease the range back out to full, then slide the new target bar in
+    Animated.parallel([
+      Animated.timing(animLo, { toValue: loRef.current, duration: 500, useNativeDriver: false }),
+      Animated.timing(animHi, { toValue: hiRef.current, duration: 500, useNativeDriver: false }),
+    ]).start(() => {
+      const finalY = freqToY(pick.frequency, loRef.current, hiRef.current) - 2;
+      const startY = finalY < pitchBoxHeight / 2 ? pitchBoxHeight + 10 : -10;
+
+      targetAnimY.stopAnimation();
+      targetAnimY.setValue(startY);
+      setStarted(true);
+      setBarVisible(true);
+
+      Animated.timing(targetAnimY, {
+        toValue: finalY,
+        duration: 600,
+        useNativeDriver: false,
+      }).start(() => {
+        targetPitchRef.current = pick;
+        setTargetPitch(pick);
+        setHasTarget(true);
+        Pitches.playSingle(pick);
+        // Only open scoring after the note finishes playing
+        const sub = TrackPlayer.addEventListener(Event.PlaybackQueueEnded, () => {
+          hasTargetRef.current = true;
+          sub.remove();
+        });
+      });
     });
   }
+
+  const squareY = freqToY(hz, displayLo, displayHi) - 3;
 
   return (
     <SafeAreaView style={styles.pitchmatchContainer}>
@@ -195,20 +263,20 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
       <View style={styles.pitchBox}>
         {pitchGrid}
 
-        {started && (
+        {barVisible && (
           <Animated.View style={[styles.targetLine, { top: targetAnimY }]} />
         )}
 
         {hasTarget && targetPitch && (
           <Text style={[styles.targetText, {
-            top: Math.max(2, freqToY(targetPitch.frequency, lo, hi) - 22),
+            top: Math.max(2, freqToY(targetPitch.frequency, displayLo, displayHi) - 22),
           }]}>
             {Pitches.displayName(targetPitch)}
           </Text>
         )}
 
-        {started && (
-          <View style={[styles.pitchSquare, { top: position, backgroundColor: currentColor }]} />
+        {started && hz > 0 && (
+          <View style={[styles.pitchSquare, { top: squareY, backgroundColor: currentColor }]} />
         )}
 
         {started && pitchLine.map((item, index) => (
@@ -218,7 +286,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
               styles.pitchTail,
               {
                 position: 'absolute',
-                top: item.top,
+                top: freqToY(item.freq, displayLo, displayHi) - 2,
                 left: pitchBoxWidth / 2 - index - 12,
                 backgroundColor: item.color,
                 opacity: Math.max(0, 1 - index / (MAX_TAIL * 0.5)),
