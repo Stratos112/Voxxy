@@ -35,6 +35,8 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack, onComplete }) =
   const increasingRef = useRef(true);
   const failCountRef = useRef(0);
   const activeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gradeSumRef = useRef(0);
+  const gradeCountRef = useRef(0);
 
   const [hz, setHz] = useState(0);
   const [note, setNote] = useState("C4");
@@ -62,6 +64,8 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack, onComplete }) =
     setListening(false);
     setAvgGrade(0.0);
     setGrade(0);
+    gradeSumRef.current = 0;
+    gradeCountRef.current = 0;
     setPhase('active');
     Pitches.playSingle(expected);
     activeTimerRef.current = setTimeout(() => {
@@ -180,13 +184,16 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack, onComplete }) =
       try {
         PitchDetector.start();
         subscription = PitchDetector.addListener((value: { frequency: number, tone: string}) => {
-          setHz(value.frequency); // the fqz of what you are singing
-          setNote(value.tone);    // the name of the pitch you are singing. 
-          let current = Grade.grade(expected.frequency, value.frequency, increasingRef.current ? 'sharp' : 'flat')
-          setAvgGrade(prev => (prev + current) / 2);
-          setGrade(current);
-
-      });
+          setHz(value.frequency);
+          setNote(value.tone);
+          if (value.frequency > 0) {
+            const current = Grade.grade(expected.frequency, value.frequency, increasingRef.current ? 'sharp' : 'flat');
+            gradeSumRef.current += current;
+            gradeCountRef.current += 1;
+            setAvgGrade(gradeSumRef.current / gradeCountRef.current);
+            setGrade(current);
+          }
+        });
         console.log("Pitch detection started.");
       } catch (e) {
         console.error("Failed to start pitch detector:", e);
