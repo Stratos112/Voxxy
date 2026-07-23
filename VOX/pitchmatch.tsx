@@ -16,11 +16,29 @@ import {
 import { PitchDetector } from 'react-native-pitch-detector';
 import styles, { pitchBoxHeight, pitchBoxWidth } from './UI/styles';
 import { Pitch, Pitches } from './API/pitch';
+import { Grade } from './API/grade';
 import { Profile } from './profile';
 
 const MAX_TAIL = 120;
 const TICK_SKIP = 2;
 const GRID_MARGIN = 10;
+
+const BANDS = [
+  { min: 96, color: '#b8f0ff' }, // perfect — diamond (icy blue-white)
+  { min: 90, color: '#00e676' }, // excellent — bright green
+  { min: 82, color: '#2cf7ba' }, // great — mint
+  { min: 72, color: '#7a8c5a' }, // good — pea soup green-grey
+  { min: 60, color: '#5f7878' }, // average — steel grey, blue-green cast
+  { min: 45, color: '#7a6858' }, // close — warm brown-grey
+  { min: 0,  color: '#607080' }, // off — slate grey
+];
+
+function bandColor(score: number): string {
+  for (const band of BANDS) {
+    if (score >= band.min) return band.color;
+  }
+  return BANDS[BANDS.length - 1].color;
+}
 
 // Maps freq to `top` pixel within pitchBox.
 // hi freq → GRID_MARGIN (near top), lo freq → pitchBoxHeight - 1 - GRID_MARGIN (near bottom).
@@ -41,13 +59,16 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
   const [position, setPosition] = useState(Math.round(pitchBoxHeight / 2));
   const [hz, setHz] = useState(0);
   const [note, setNote] = useState('');
-  const [pitchLine, setPitchLine] = useState<number[]>([]);
+  const [pitchLine, setPitchLine] = useState<Array<{top: number, color: string}>>([]);
+  const [currentColor, setCurrentColor] = useState('#ffffff');
   const [started, setStarted] = useState(false);
   const [hasTarget, setHasTarget] = useState(false);
   const [targetPitch, setTargetPitch] = useState<Pitch | null>(null);
 
   const targetAnimY = useRef(new Animated.Value(-100)).current;
   const tickRef = useRef(0);
+  const targetPitchRef = useRef<Pitch | null>(null);
+  const hasTargetRef = useRef(false);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -78,10 +99,18 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
         if (tickRef.current % TICK_SKIP !== 0) return;
 
         const pos = freqToY(value.frequency, loRef.current, hiRef.current) - 3;
+
+        let color = '#ffffff';
+        if (hasTargetRef.current && targetPitchRef.current && value.frequency > 0) {
+          const score = Grade.grade(targetPitchRef.current.frequency, value.frequency);
+          color = bandColor(score);
+        }
+
         setPitchLine(prev => {
-          const next = [pos + 1, ...prev];
+          const next = [{top: pos + 1, color}, ...prev];
           return next.length > MAX_TAIL ? next.slice(0, MAX_TAIL) : next;
         });
+        setCurrentColor(color);
         setHz(value.frequency);
         setNote(value.tone);
         setPosition(pos);
@@ -127,6 +156,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
     targetAnimY.stopAnimation();
     targetAnimY.setValue(startY);
     setStarted(true);
+    hasTargetRef.current = false;
     setHasTarget(false);
 
     Animated.timing(targetAnimY, {
@@ -134,6 +164,8 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
       duration: 600,
       useNativeDriver: false,
     }).start(() => {
+      targetPitchRef.current = pick;
+      hasTargetRef.current = true;
       setTargetPitch(pick);
       setHasTarget(true);
       Pitches.playSingle(pick);
@@ -175,7 +207,9 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
           </Text>
         )}
 
-        {started && <View style={[styles.pitchSquare, { top: position }]} />}
+        {started && (
+          <View style={[styles.pitchSquare, { top: position, backgroundColor: currentColor }]} />
+        )}
 
         {started && pitchLine.map((item, index) => (
           <View
@@ -184,8 +218,9 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
               styles.pitchTail,
               {
                 position: 'absolute',
-                top: item,
+                top: item.top,
                 left: pitchBoxWidth / 2 - index - 12,
+                backgroundColor: item.color,
                 opacity: Math.max(0, 1 - index / (MAX_TAIL * 0.5)),
               },
             ]}
