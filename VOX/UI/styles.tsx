@@ -129,6 +129,12 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     backgroundColor: '#04756cff',
     borderRadius: 6,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.95,
+    shadowRadius: 6,
+    elevation: 30,
+    zIndex: 100,
   },
   primaryButton: {
     width: '80%',
