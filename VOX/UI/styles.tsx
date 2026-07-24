@@ -171,9 +171,8 @@ const styles = StyleSheet.create({
     color: textColor,
   },
   targetText: {
-    marginLeft:150, 
     color: targetColor,
-    position: 'absolute'
+    position: 'absolute',
   },
   titleText: {
     fontSize: 30,
@@ -209,10 +208,8 @@ const styles = StyleSheet.create({
   // MISC
   // -------------
   targetLine: {
-    height: 5, 
-    backgroundColor: targetColor, 
-    width: '50%', 
-    marginLeft:150, 
+    height: 5,
+    backgroundColor: targetColor,
     position: 'absolute'
   },
   pitchGrid: {
