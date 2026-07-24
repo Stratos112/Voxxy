@@ -25,7 +25,8 @@ const GRID_MARGIN = 10;
 const ROLLING_N   = 8;
 const ZOOM_ALPHA  = 0.28;
 const DURATION_MS = 5000;
-const FADE_MS     = 4000;
+const BAR_LEFT    = 150;
+const BAR_WIDTH   = pitchBoxWidth - 170;
 
 // Horizontal lane the square travels across during scoring
 const SCORE_X0 = Math.round(pitchBoxWidth * 0.35);
@@ -77,7 +78,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
   const [userProfile, setUserProfile]   = useState(new Profile());
   const [hz, setHz]                     = useState(0);
   const [note, setNote]                 = useState('');
-  const [pitchLine, setPitchLine]       = useState<Array<{top: number, left: number, color: string, born: number, bornAt: number}>>([]);
+  const [pitchLine, setPitchLine]       = useState<Array<{top: number, left: number, color: string, born: number}>>([]);
   const [currentColor, setCurrentColor] = useState('#ffffff');
   const [started, setStarted]           = useState(false);
   const [hasTarget, setHasTarget]       = useState(false);
@@ -200,12 +201,11 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
 
         // Store dot — both top and left frozen at birth
         if (isZoomSettledRef.current) {
-          const top    = freqToY(value.frequency, displayLoRef.current, displayHiRef.current) - 2;
-          const left   = squareLeftRef.current;
-          const born   = dotCounterRef.current++;
-          const bornAt = Date.now();
+          const top  = freqToY(value.frequency, displayLoRef.current, displayHiRef.current) - 2;
+          const left = squareLeftRef.current;
+          const born = dotCounterRef.current++;
           setPitchLine(prev => {
-            const next = [{ top, left, color, born, bornAt }, ...prev];
+            const next = [{ top, left, color, born }, ...prev];
             return next.length > MAX_TAIL ? next.slice(0, MAX_TAIL) : next;
           });
         }
@@ -284,8 +284,12 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
     });
   }
 
-  const squareY = freqToY(hz, displayLo, displayHi) - 3;
-  const now     = Date.now();
+  const squareY  = freqToY(hz, displayLo, displayHi) - 3;
+  const coverWidth = useMemo(() => scoreX.interpolate({
+    inputRange: [BAR_LEFT, BAR_LEFT + BAR_WIDTH],
+    outputRange: [0, BAR_WIDTH],
+    extrapolate: 'clamp',
+  }), []);
 
   return (
     <SafeAreaView style={styles.pitchmatchContainer}>
@@ -313,16 +317,27 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
         {barVisible && (
           <Animated.View style={[styles.targetLine, {
             top: targetAnimY,
-            left: 150,
-            width: pitchBoxWidth - 170,
+            left: BAR_LEFT,
+            width: BAR_WIDTH,
           }]} />
+        )}
+
+        {barVisible && (
+          <Animated.View style={{
+            position: 'absolute',
+            top: targetAnimY,
+            left: BAR_LEFT,
+            height: 5,
+            width: coverWidth,
+            backgroundColor: 'black',
+          }} />
         )}
 
         {hasTarget && targetPitch && (
           <Text style={[styles.targetText, {
             top: Math.max(2, freqToY(targetPitch.frequency, displayLo, displayHi) - 22),
-            left: 150,
-            width: pitchBoxWidth - 170,
+            left: BAR_LEFT,
+            width: BAR_WIDTH,
             textAlign: 'center',
           }]}>
             {Pitches.displayName(targetPitch)}
@@ -344,7 +359,6 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
               top: item.top,
               left: item.left,
               backgroundColor: item.color,
-              opacity: Math.max(0, 1 - (now - item.bornAt) / FADE_MS),
             }]}
           />
         ))}
