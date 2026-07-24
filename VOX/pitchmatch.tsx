@@ -20,19 +20,17 @@ import { Pitch, Pitches } from './API/pitch';
 import { Grade } from './API/grade';
 import { Profile } from './profile';
 
-const MAX_TAIL = 120;
+const MAX_TAIL = 600;
 const TICK_SKIP = 2;
 const GRID_MARGIN = 10;
 const ROLLING_N = 8;
-const ZOOM_ALPHA = 0.05;
+const ZOOM_ALPHA = 0.08;
 
 const BANDS = [
-  { min: 96, color: '#b8f0ff' }, // perfect — diamond (icy blue-white)
-  { min: 90, color: '#00e676' }, // excellent — bright green
-  { min: 82, color: '#2cf7ba' }, // great — mint
-  { min: 72, color: '#7a8c5a' }, // good — pea soup green-grey
-  { min: 60, color: '#5f7878' }, // average — steel grey, blue-green cast
-  { min: 45, color: '#7a6858' }, // close — warm brown-grey
+  { min: 99, color: '#b8f0ff' }, // perfect — diamond
+  { min: 96, color: '#00e676' }, // excellent — bright green
+  { min: 90, color: '#7a8c5a' }, // good — pea soup
+  { min: 85, color: '#5f7878' }, // average — steel blue-green
   { min: 0,  color: '#607080' }, // off — slate grey
 ];
 
@@ -41,6 +39,24 @@ function bandColor(score: number): string {
     if (score >= band.min) return band.color;
   }
   return BANDS[BANDS.length - 1].color;
+}
+
+// Reduces pitchLine for rendering: full res for recent frames, thinned for older ones.
+// Color-change dots are always kept regardless of tier — they mark band transitions.
+// Returns original frame index (idx) so left-positioning stays time-accurate.
+// born % N is stable — a dot's keep/cull decision never flips mid-life.
+// Age tier (i) can change each frame, but born-based modulo does not.
+function downsampleTrail(line: Array<{top: number, color: string, born: number}>): Array<{top: number, color: string, born: number}> {
+  const result: Array<{top: number, color: string, born: number}> = [];
+  for (let i = 0; i < line.length; i++) {
+    const colorChanged = i > 0 && line[i].color !== line[i - 1].color;
+    const keep =
+      i < 30 ||
+      (i < 200 && (colorChanged || line[i].born % 3 === 0)) ||
+      (i >= 200 && (colorChanged || line[i].born % 7 === 0));
+    if (keep) result.push(line[i]);
+  }
+  return result;
 }
 
 // hi → top=GRID_MARGIN, lo → top=pitchBoxHeight-1-GRID_MARGIN
@@ -59,7 +75,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
   const [userProfile, setUserProfile] = useState(new Profile());
   const [hz, setHz] = useState(0);
   const [note, setNote] = useState('');
-  const [pitchLine, setPitchLine] = useState<Array<{freq: number, color: string}>>([]);
+  const [pitchLine, setPitchLine] = useState<Array<{top: number, color: string, born: number}>>([]);
   const [currentColor, setCurrentColor] = useState('#ffffff');
   const [started, setStarted] = useState(false);
   const [hasTarget, setHasTarget] = useState(false);
@@ -77,6 +93,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
   const loRef = useRef(65.41);
   const hiRef = useRef(1046.5);
   const recentFreqsRef = useRef<number[]>([]);
+  const dotCounterRef = useRef(0);
   const animLo = useRef(new Animated.Value(65.41)).current;
   const animHi = useRef(new Animated.Value(1046.5)).current;
 
@@ -160,8 +177,10 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
           animHi.setValue(newHi);
         }
 
+        const top = freqToY(value.frequency, displayLoRef.current, displayHiRef.current) - 2;
+        const born = dotCounterRef.current++;
         setPitchLine(prev => {
-          const next = [{ freq: value.frequency, color }, ...prev];
+          const next = [{ top, color, born }, ...prev];
           return next.length > MAX_TAIL ? next.slice(0, MAX_TAIL) : next;
         });
         setCurrentColor(color);
@@ -239,6 +258,8 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
   }
 
   const squareY = freqToY(hz, displayLo, displayHi) - 3;
+  const visibleTrail = useMemo(() => downsampleTrail(pitchLine), [pitchLine]);
+  const latestBorn = pitchLine[0]?.born ?? 0;
 
   return (
     <SafeAreaView style={styles.pitchmatchContainer}>
@@ -279,21 +300,24 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
           <View style={[styles.pitchSquare, { top: squareY, backgroundColor: currentColor }]} />
         )}
 
-        {started && pitchLine.map((item, index) => (
-          <View
-            key={index}
-            style={[
-              styles.pitchTail,
-              {
-                position: 'absolute',
-                top: freqToY(item.freq, displayLo, displayHi) - 2,
-                left: pitchBoxWidth / 2 - index - 12,
-                backgroundColor: item.color,
-                opacity: Math.max(0, 1 - index / (MAX_TAIL * 0.5)),
-              },
-            ]}
-          />
-        ))}
+        {started && visibleTrail.map((item) => {
+          const age = latestBorn - item.born;
+          return (
+            <View
+              key={item.born}
+              style={[
+                styles.pitchTail,
+                {
+                  position: 'absolute',
+                  top: item.top,
+                  left: pitchBoxWidth / 2 - age - 12,
+                  backgroundColor: item.color,
+                  opacity: Math.max(0, 1 - age / (MAX_TAIL * 0.6)),
+                },
+              ]}
+            />
+          );
+        })}
       </View>
 
       <View style={styles.controls}>
