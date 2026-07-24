@@ -45,6 +45,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor : 'black',
+    overflow: 'hidden',
   },
   intervalContainer: {
     flex: 1,

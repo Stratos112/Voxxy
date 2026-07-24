@@ -14,17 +14,17 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { PitchDetector } from 'react-native-pitch-detector';
-import TrackPlayer, { Event } from 'react-native-track-player';
 import styles, { pitchBoxHeight, pitchBoxWidth } from './UI/styles';
 import { Pitch, Pitches } from './API/pitch';
 import { Grade } from './API/grade';
 import { Profile } from './profile';
 
 const MAX_TAIL = 600;
+const TRAIL_SCALE = 0.6;
 const TICK_SKIP = 2;
 const GRID_MARGIN = 10;
 const ROLLING_N = 8;
-const ZOOM_ALPHA = 0.08;
+const ZOOM_ALPHA = 0.28;
 
 const BANDS = [
   { min: 99, color: '#b8f0ff' }, // perfect — diamond
@@ -256,11 +256,8 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
         setTargetPitch(pick);
         setHasTarget(true);
         Pitches.playSingle(pick);
-        // Only open scoring after the note finishes playing
-        const sub = TrackPlayer.addEventListener(Event.PlaybackQueueEnded, () => {
-          hasTargetRef.current = true;
-          sub.remove();
-        });
+        // Start listening after the note's attack+body — don't wait for full decay tail
+        setTimeout(() => { hasTargetRef.current = true; }, 1000);
       });
     });
   }
@@ -318,7 +315,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
                 {
                   position: 'absolute',
                   top: item.top,
-                  left: pitchBoxWidth / 2 - age - 12,
+                  left: pitchBoxWidth / 2 - Math.round(age * TRAIL_SCALE) - 12,
                   backgroundColor: item.color,
                   opacity: Math.max(0, 1 - age / (MAX_TAIL * 0.6)),
                 },
