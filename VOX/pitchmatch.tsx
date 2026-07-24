@@ -20,7 +20,7 @@ import { Grade } from './API/grade';
 import { Profile } from './profile';
 
 const MAX_TAIL = 600;
-const TRAIL_SCALE = 0.6;
+const TRAIL_SCALE = 2;
 const TICK_SKIP = 2;
 const GRID_MARGIN = 10;
 const ROLLING_N = 8;
@@ -60,6 +60,19 @@ function downsampleTrail(line: Array<{top: number, color: string, born: number}>
 }
 
 // hi → top=GRID_MARGIN, lo → top=pitchBoxHeight-1-GRID_MARGIN
+function gaussianPick<T>(arr: T[]): T {
+  const mid = (arr.length - 1) / 2;
+  const sigma = arr.length / 4;
+  const weights = arr.map((_, i) => Math.exp(-0.5 * ((i - mid) / sigma) ** 2));
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < arr.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return arr[i];
+  }
+  return arr[arr.length - 1];
+}
+
 function freqToY(freq: number, lo: number, hi: number): number {
   if (hi <= lo) return Math.round(pitchBoxHeight / 2);
   const clamped = Math.min(Math.max(freq, lo), hi);
@@ -125,14 +138,14 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
     const subLo = animLo.addListener(({ value }) => {
       displayLoRef.current = value;
       setDisplayLo(value);
-      // Keep target bar locked to its pitch as range shifts
-      if (targetPitchRef.current) {
-        targetAnimY.setValue(freqToY(targetPitchRef.current.frequency, value, displayHiRef.current) - 2);
-      }
     });
     const subHi = animHi.addListener(({ value }) => {
       displayHiRef.current = value;
       setDisplayHi(value);
+      // Reposition bar after BOTH lo and hi are updated (animLo listener fires first)
+      if (targetPitchRef.current) {
+        targetAnimY.setValue(freqToY(targetPitchRef.current.frequency, displayLoRef.current, value) - 2);
+      }
     });
     return () => {
       animLo.removeListener(subLo);
@@ -182,9 +195,9 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
           animHi.setValue(newHi);
         }
 
-        const top = freqToY(value.frequency, displayLoRef.current, displayHiRef.current) - 2;
-        const born = dotCounterRef.current++;
         if (isZoomSettledRef.current) {
+          const top = freqToY(value.frequency, displayLoRef.current, displayHiRef.current) - 2;
+          const born = dotCounterRef.current++;
           setPitchLine(prev => {
             const next = [{ top, color, born }, ...prev];
             return next.length > MAX_TAIL ? next.slice(0, MAX_TAIL) : next;
@@ -225,7 +238,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
 
   function newTarget() {
     if (userRange.length === 0) return;
-    const pick = userRange[Math.floor(Math.random() * userRange.length)];
+    const pick = gaussianPick(userRange);
 
     hasTargetRef.current = false;
     isZoomSettledRef.current = false;
@@ -317,7 +330,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
                   top: item.top,
                   left: pitchBoxWidth / 2 - Math.round(age * TRAIL_SCALE) - 12,
                   backgroundColor: item.color,
-                  opacity: Math.max(0, 1 - age / (MAX_TAIL * 0.6)),
+                  opacity: Math.max(0, 1 - age / (MAX_TAIL * 0.45)),
                 },
               ]}
             />
