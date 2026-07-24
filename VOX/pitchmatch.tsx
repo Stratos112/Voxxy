@@ -94,6 +94,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
   const hiRef = useRef(1046.5);
   const recentFreqsRef = useRef<number[]>([]);
   const dotCounterRef = useRef(0);
+  const isZoomSettledRef = useRef(false);
   const animLo = useRef(new Animated.Value(65.41)).current;
   const animHi = useRef(new Animated.Value(1046.5)).current;
 
@@ -172,6 +173,10 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
           const newLo = displayLoRef.current + (desiredLo - displayLoRef.current) * ZOOM_ALPHA;
           const newHi = displayHiRef.current + (desiredHi - displayHiRef.current) * ZOOM_ALPHA;
 
+          // Settled when relative change per tick drops below 0.1%
+          const relChange = Math.abs(newLo - displayLoRef.current) / displayLoRef.current;
+          isZoomSettledRef.current = relChange < 0.001;
+
           // setValue triggers listeners → updates refs, state, and targetAnimY
           animLo.setValue(newLo);
           animHi.setValue(newHi);
@@ -179,10 +184,12 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
 
         const top = freqToY(value.frequency, displayLoRef.current, displayHiRef.current) - 2;
         const born = dotCounterRef.current++;
-        setPitchLine(prev => {
-          const next = [{ top, color, born }, ...prev];
-          return next.length > MAX_TAIL ? next.slice(0, MAX_TAIL) : next;
-        });
+        if (isZoomSettledRef.current) {
+          setPitchLine(prev => {
+            const next = [{ top, color, born }, ...prev];
+            return next.length > MAX_TAIL ? next.slice(0, MAX_TAIL) : next;
+          });
+        }
         setCurrentColor(color);
         setHz(value.frequency);
         setNote(value.tone);
@@ -221,6 +228,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
     const pick = userRange[Math.floor(Math.random() * userRange.length)];
 
     hasTargetRef.current = false;
+    isZoomSettledRef.current = false;
     setHasTarget(false);
     setBarVisible(false);
     recentFreqsRef.current = [];
