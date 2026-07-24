@@ -19,19 +19,19 @@ import { Pitch, Pitches } from './API/pitch';
 import { Grade } from './API/grade';
 import { Profile } from './profile';
 
-const MAX_TAIL    = 150;
-const TICK_SKIP   = 2;
+const MAX_TAIL    = 200;
+const TICK_SKIP   = 0.5;
 const GRID_MARGIN = 10;
 const ROLLING_N   = 8;
 const ZOOM_ALPHA  = 0.28;
 const DURATION_MS = 5000;
 const BAR_LEFT    = 150;
 const BAR_WIDTH   = pitchBoxWidth - 170;
+const BAR_RIGHT   = BAR_LEFT + BAR_WIDTH;
 
 // Horizontal lane the square travels across during scoring
-const SCORE_X0 = Math.round(pitchBoxWidth * 0.35);
+const SCORE_X0 = pitchBoxWidth - BAR_RIGHT; // mirrors the bar's right-side gap
 const SCORE_X1 = pitchBoxWidth - 10;
-const SCORE_W  = SCORE_X1 - SCORE_X0;
 
 const BANDS = [
   { min: 99, color: '#b8f0ff' }, // perfect — diamond
@@ -199,8 +199,8 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
           }
         }
 
-        // Store dot — both top and left frozen at birth
-        if (isZoomSettledRef.current) {
+        // Store dot — only while square is over the target bar
+        if (isZoomSettledRef.current && squareLeftRef.current < BAR_RIGHT) {
           const top  = freqToY(value.frequency, displayLoRef.current, displayHiRef.current) - 2;
           const left = squareLeftRef.current;
           const born = dotCounterRef.current++;
