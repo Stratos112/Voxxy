@@ -20,7 +20,6 @@ import { Grade } from './API/grade';
 import { Profile } from './profile';
 
 const MAX_TAIL    = 200;
-const TICK_SKIP   = 0.5;
 const GRID_MARGIN = 10;
 const ROLLING_N   = 8;
 const ZOOM_ALPHA  = 0.28;
@@ -89,7 +88,6 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
 
   const targetAnimY        = useRef(new Animated.Value(-100)).current;
   const scoreX             = useRef(new Animated.Value(SCORE_X0)).current;
-  const tickRef            = useRef(0);
   const targetPitchRef     = useRef<Pitch | null>(null);
   const hasTargetRef       = useRef(false);
   const displayLoRef       = useRef(65.41);
@@ -156,9 +154,6 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
     try {
       PitchDetector.start();
       subscription = PitchDetector.addListener((value: { frequency: number; tone: string }) => {
-        tickRef.current += 1;
-        if (tickRef.current % TICK_SKIP !== 0) return;
-
         let color = '#ffffff';
 
         if (hasTargetRef.current && targetPitchRef.current && value.frequency > 0) {
@@ -286,7 +281,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
 
   const squareY  = freqToY(hz, displayLo, displayHi) - 3;
   const coverWidth = useMemo(() => scoreX.interpolate({
-    inputRange: [BAR_LEFT, BAR_LEFT + BAR_WIDTH],
+    inputRange: [BAR_LEFT, BAR_RIGHT],
     outputRange: [0, BAR_WIDTH],
     extrapolate: 'clamp',
   }), []);
