@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { PitchDetector } from 'react-native-pitch-detector';
+import TrackPlayer, { Event } from 'react-native-track-player';
 import styles, { pitchBoxHeight, pitchBoxWidth } from './UI/styles';
 import { Pitch, Pitches } from './API/pitch';
 import { Grade } from './API/grade';
@@ -23,13 +24,13 @@ const MAX_TAIL    = 200;
 const GRID_MARGIN = 10;
 const ROLLING_N   = 8;
 const ZOOM_ALPHA  = 0.28;
-const DURATION_MS = 5000;
-const BAR_LEFT    = 150;
-const BAR_WIDTH   = pitchBoxWidth - 170;
-const BAR_RIGHT   = BAR_LEFT + BAR_WIDTH;
+const DURATION_MS   = 5000;
+const NUM_PARTICLES = 10;
+const BAR_LEFT  = 35;
+const BAR_WIDTH = pitchBoxWidth - 55;
+const BAR_RIGHT = BAR_LEFT + BAR_WIDTH;
 
-// Horizontal lane the square travels across during scoring
-const SCORE_X0 = pitchBoxWidth - BAR_RIGHT; // mirrors the bar's right-side gap
+const SCORE_X0 = BAR_LEFT - 15;
 const SCORE_X1 = pitchBoxWidth - 10;
 
 const BANDS = [
@@ -101,6 +102,16 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
   const squareLeftRef      = useRef(SCORE_X0);
   const animLo             = useRef(new Animated.Value(65.41)).current;
   const animHi             = useRef(new Animated.Value(1046.5)).current;
+  const glowAnim            = useRef(new Animated.Value(0)).current;
+  const lastPerfectFireRef  = useRef(0);
+  const particles          = useRef(
+    Array.from({ length: NUM_PARTICLES }, () => ({
+      tx: new Animated.Value(0),
+      ty: new Animated.Value(0),
+      op: new Animated.Value(0),
+    }))
+  ).current;
+  const [perfectPos, setPerfectPos] = useState({ x: -100, y: -100 });
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -183,6 +194,26 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
             animHi.setValue(newHi);
           }
 
+          const nowMs = Date.now();
+          if (score >= 99 && isZoomSettledRef.current && nowMs - lastPerfectFireRef.current > 700) {
+            lastPerfectFireRef.current = nowMs;
+            const cx = squareLeftRef.current;
+            const cy = freqToY(value.frequency, displayLoRef.current, displayHiRef.current);
+            setPerfectPos({ x: cx, y: cy });
+            glowAnim.setValue(0.18);
+            Animated.timing(glowAnim, { toValue: 0, duration: 600, useNativeDriver: true }).start();
+            particles.forEach((p, i) => {
+              const angle = (i / NUM_PARTICLES) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+              const dist  = 30 + Math.random() * 50;
+              p.tx.setValue(0); p.ty.setValue(0); p.op.setValue(1);
+              Animated.parallel([
+                Animated.timing(p.tx, { toValue: Math.cos(angle) * dist, duration: 650, useNativeDriver: true }),
+                Animated.timing(p.ty, { toValue: Math.sin(angle) * dist, duration: 650, useNativeDriver: true }),
+                Animated.timing(p.op, { toValue: 0,                      duration: 650, useNativeDriver: true }),
+              ]).start();
+            });
+          }
+
           // One-shot: start horizontal progress animation the moment zoom settles
           if (isZoomSettledRef.current && !horizontalStartRef.current) {
             horizontalStartRef.current = true;
@@ -192,6 +223,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
               useNativeDriver: false,
             }).start();
           }
+
         }
 
         // Store dot — only while square is over the target bar
@@ -241,9 +273,10 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
     if (userRange.length === 0) return;
     const pick = gaussianPick(userRange);
 
-    hasTargetRef.current     = false;
-    isZoomSettledRef.current = false;
+    hasTargetRef.current       = false;
+    isZoomSettledRef.current   = false;
     horizontalStartRef.current = false;
+    lastPerfectFireRef.current = 0;
     setHasTarget(false);
     setBarVisible(false);
     recentFreqsRef.current = [];
@@ -273,8 +306,10 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
         setTargetPitch(pick);
         setHasTarget(true);
         Pitches.playSingle(pick);
-        // Open scoring after note's attack/body — don't wait for full decay tail
-        setTimeout(() => { hasTargetRef.current = true; }, 1000);
+        const sub = TrackPlayer.addEventListener(Event.PlaybackQueueEnded, () => {
+          hasTargetRef.current = true;
+          sub.remove();
+        });
       });
     });
   }
@@ -355,6 +390,27 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
               left: item.left,
               backgroundColor: item.color,
             }]}
+          />
+        ))}
+
+        <Animated.View
+          pointerEvents="none"
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#b8f0ff', opacity: glowAnim }}
+        />
+
+        {particles.map((p, i) => (
+          <Animated.View
+            key={`p${i}`}
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              width: 4, height: 4, borderRadius: 2,
+              backgroundColor: '#b8f0ff',
+              top: perfectPos.y - 2,
+              left: perfectPos.x - 2,
+              opacity: p.op,
+              transform: [{ translateX: p.tx }, { translateY: p.ty }],
+            }}
           />
         ))}
       </View>
