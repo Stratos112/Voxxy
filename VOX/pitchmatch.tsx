@@ -20,18 +20,25 @@ import { Pitch, Pitches } from './API/pitch';
 import { Grade } from './API/grade';
 import { Profile } from './profile';
 
-const MAX_TAIL    = 200;
-const GRID_MARGIN = 10;
-const ROLLING_N   = 8;
-const ZOOM_ALPHA  = 0.28;
+const MAX_TAIL      = 200;
+const GRID_MARGIN   = 10;
+const ROLLING_N     = 8;
+const ZOOM_ALPHA    = 0.28;
 const DURATION_MS   = 5000;
 const NUM_PARTICLES = 10;
-const BAR_LEFT  = 35;
-const BAR_WIDTH = pitchBoxWidth - 55;
-const BAR_RIGHT = BAR_LEFT + BAR_WIDTH;
 
-const SCORE_X0 = BAR_LEFT - 15;
-const SCORE_X1 = pitchBoxWidth - 10;
+const BOX_W         = 24;
+const BOX_H         = 55;
+const BOX_GAP       = 8;
+const BOX_X         = 4;
+const BOX_TOP_START = Math.round((pitchBoxHeight - (5 * BOX_H + 4 * BOX_GAP)) / 2);
+
+const SCORE_X0  = BOX_X + BOX_W + 8;  // starts in gap between boxes and bar
+const BAR_LEFT  = SCORE_X0 + 14;       // bar starts 14px right of square start
+const BAR_RIGHT = pitchBoxWidth - 20;
+const BAR_WIDTH = BAR_RIGHT - BAR_LEFT;
+
+const SCORE_X1 = BAR_RIGHT;
 
 const BANDS = [
   { min: 99, color: '#b8f0ff' }, // perfect — diamond
@@ -40,6 +47,14 @@ const BANDS = [
   { min: 85, color: '#5f7878' }, // average — steel blue-green
   { min: 0,  color: '#607080' }, // off — slate grey
 ];
+
+function bandIndexFromColor(color: string): number {
+  const idx = BANDS.findIndex(b => b.color === color);
+  return idx >= 0 ? idx : BANDS.length - 1;
+}
+function boxCenterY(bandIdx: number): number {
+  return BOX_TOP_START + bandIdx * (BOX_H + BOX_GAP) + BOX_H / 2;
+}
 
 function bandColor(score: number): string {
   for (const band of BANDS) {
@@ -100,10 +115,18 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
   const isZoomSettledRef   = useRef(false);
   const horizontalStartRef = useRef(false);
   const squareLeftRef      = useRef(SCORE_X0);
-  const animLo             = useRef(new Animated.Value(65.41)).current;
-  const animHi             = useRef(new Animated.Value(1046.5)).current;
+  const animLo              = useRef(new Animated.Value(65.41)).current;
+  const animHi              = useRef(new Animated.Value(1046.5)).current;
   const glowAnim            = useRef(new Animated.Value(0)).current;
   const lastPerfectFireRef  = useRef(0);
+  const scoringDotsRef      = useRef<Array<{top: number, left: number, color: string, born: number}>>([]);
+  const onScoringEndRef     = useRef<() => void>(() => {});
+  const [animTail, setAnimTail] = useState<Array<{
+    top: number, left: number, color: string, born: number,
+    tx: Animated.Value, ty: Animated.Value, op: Animated.Value,
+  }>>([]);
+  const [boxFull, setBoxFull]         = useState(false);
+  const [tierCounts, setTierCounts]   = useState<number[]>([0,0,0,0,0]);
   const particles          = useRef(
     Array.from({ length: NUM_PARTICLES }, () => ({
       tx: new Animated.Value(0),
@@ -221,7 +244,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
               toValue: SCORE_X1,
               duration: DURATION_MS,
               useNativeDriver: false,
-            }).start();
+            }).start(() => { onScoringEndRef.current(); });
           }
 
         }
@@ -231,8 +254,10 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
           const top  = freqToY(value.frequency, displayLoRef.current, displayHiRef.current) - 2;
           const left = squareLeftRef.current;
           const born = dotCounterRef.current++;
+          const dot  = { top, left, color, born };
+          scoringDotsRef.current = [dot, ...scoringDotsRef.current].slice(0, MAX_TAIL);
           setPitchLine(prev => {
-            const next = [{ top, left, color, born }, ...prev];
+            const next = [dot, ...prev];
             return next.length > MAX_TAIL ? next.slice(0, MAX_TAIL) : next;
           });
         }
@@ -269,6 +294,37 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
       ));
   }, [displayLo, displayHi]);
 
+  onScoringEndRef.current = () => {
+    const dots = scoringDotsRef.current;
+    if (dots.length === 0) return;
+    const counts = [0, 0, 0, 0, 0];
+    dots.forEach(d => { counts[bandIndexFromColor(d.color)]++; });
+    setTierCounts(counts);
+    setBoxFull(true);
+    const items = dots.map(dot => ({
+      ...dot,
+      tx: new Animated.Value(0),
+      ty: new Animated.Value(0),
+      op: new Animated.Value(1),
+    }));
+    setAnimTail(items);
+    setPitchLine([]);
+    const anims = items.map(item => {
+      const idx     = bandIndexFromColor(item.color);
+      const targetX = BOX_X + BOX_W / 2 - item.left;
+      const targetY = boxCenterY(idx) - item.top;
+      return Animated.parallel([
+        Animated.timing(item.tx, { toValue: targetX, duration: 700, useNativeDriver: true }),
+        Animated.timing(item.ty, { toValue: targetY, duration: 700, useNativeDriver: true }),
+        Animated.sequence([
+          Animated.delay(500),
+          Animated.timing(item.op, { toValue: 0, duration: 200, useNativeDriver: true }),
+        ]),
+      ]);
+    });
+    Animated.stagger(3, anims).start(() => setAnimTail([]));
+  };
+
   function newTarget() {
     if (userRange.length === 0) return;
     const pick = gaussianPick(userRange);
@@ -277,8 +333,12 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
     isZoomSettledRef.current   = false;
     horizontalStartRef.current = false;
     lastPerfectFireRef.current = 0;
+    scoringDotsRef.current     = [];
     setHasTarget(false);
     setBarVisible(false);
+    setAnimTail([]);
+    setBoxFull(false);
+    setTierCounts([0,0,0,0,0]);
     recentFreqsRef.current = [];
     setPitchLine([]);
     scoreX.stopAnimation();
@@ -382,6 +442,34 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
           }]} />
         )}
 
+        {BANDS.map((band, i) => (
+          <View
+            key={`box${i}`}
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: BOX_X,
+              top: BOX_TOP_START + i * (BOX_H + BOX_GAP),
+              width: BOX_W,
+              height: BOX_H,
+              borderTopWidth: 2,
+              borderRightWidth: 0,
+              borderBottomWidth: 2,
+              borderLeftWidth: 2,
+              borderColor: band.color,
+              opacity: boxFull ? 1 : 0.35,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            {boxFull && tierCounts[i] > 0 && (
+              <Text style={{ color: band.color, fontSize: 10, fontWeight: '700' }}>
+                {tierCounts[i]}
+              </Text>
+            )}
+          </View>
+        ))}
+
         {started && pitchLine.map(item => (
           <View
             key={item.born}
@@ -390,6 +478,22 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
               left: item.left,
               backgroundColor: item.color,
             }]}
+          />
+        ))}
+
+        {animTail.map(item => (
+          <Animated.View
+            key={`at${item.born}`}
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              width: 5, height: 5,
+              top: item.top,
+              left: item.left,
+              backgroundColor: item.color,
+              opacity: item.op,
+              transform: [{ translateX: item.tx }, { translateY: item.ty }],
+            }}
           />
         ))}
 
