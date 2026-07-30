@@ -130,7 +130,6 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
     });
   }, []);
 
-  useEffect(() => { if (ready) playRound(); }, [ready]);
 
   const handleNotePress = useCallback((noteName: string, octave: number) => {
     abortPlay.current?.();
@@ -148,7 +147,10 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
     onBack();
   };
 
-  const pianoWidth = W - 2 * SIDE_PAD;
+  const KEY_BED_PAD = 10;
+  const EXTRA_RIGHT = 16;
+  const KEY_BED_BORDER = 6;
+  const pianoWidth = W - 2 * SIDE_PAD - EXTRA_RIGHT - 2 * KEY_BED_PAD - 2 * KEY_BED_BORDER;
   const octW = pianoWidth / displayOctaves.length;
   const whiteW = octW / 7;
   const blackW = whiteW * 0.6;
@@ -197,40 +199,108 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
     <View style={{ flex: 1, backgroundColor: '#282c2eff' }}>
       <StatusBar hidden />
 
-      <TouchableOpacity
-        onPress={handleBack}
-        style={{
-          position: 'absolute', top: 12, left: 12, zIndex: 10,
-          width: 36, height: 36, borderRadius: 6,
-          backgroundColor: '#04756cff',
-          justifyContent: 'center', alignItems: 'center',
-          elevation: 8,
-        }}
-      >
-        <Image
-          source={require('../static/back-arrow.png')}
-          style={{ width: 20, height: 20, tintColor: '#ffffff' }}
-          resizeMode="contain"
-        />
-      </TouchableOpacity>
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8 }}>
+        <TouchableOpacity
+          onPress={handleBack}
+          style={{
+            width: 36, height: 36, borderRadius: 6,
+            backgroundColor: '#04756cff',
+            justifyContent: 'center', alignItems: 'center',
+            elevation: 8,
+          }}
+        >
+          <Image
+            source={require('../static/back-arrow.png')}
+            style={{ width: 20, height: 20, tintColor: '#ffffff' }}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
 
-      <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: SIDE_PAD }}>
-        <View style={{ position: 'relative' }}>
-          <Piano pressedKeys={pressedKeys} octaves={displayOctaves} />
-          {keyOverlay}
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          {(phase === 'idle' || phase === 'guessing') && (
+            <TouchableOpacity
+              style={[styles.primaryButton, { width: 160, marginVertical: 0 }]}
+              onPress={playRound}
+            >
+              <Text style={styles.buttonText}>
+                {phase === 'idle' ? '▶  Play' : '▶  Play Again'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
+
+        <View style={{ width: 36 }} />
       </View>
 
-      {phase === 'guessing' && (
-        <View style={{ alignItems: 'center', paddingBottom: 16 }}>
-          <TouchableOpacity
-            style={[styles.primaryButton, { width: 200 }]}
-            onPress={playRound}
-          >
-            <Text style={styles.buttonText}>▶  Play Again</Text>
-          </TouchableOpacity>
+      <View style={{ paddingLeft: SIDE_PAD, paddingRight: SIDE_PAD + EXTRA_RIGHT, paddingTop: 8, paddingBottom: 28 }}>
+        {/* Outer cabinet — dark ebony/rosewood shell */}
+        <View style={{
+          backgroundColor: '#130700',
+          borderRadius: 14,
+          borderWidth: 2,
+          borderColor: '#5c2410',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 18 },
+          shadowOpacity: 1,
+          shadowRadius: 28,
+          elevation: 36,
+          overflow: 'hidden',
+        }}>
+          {/* Brass accent rail */}
+          <View style={{ height: 7, backgroundColor: '#9e7514', borderBottomWidth: 1, borderBottomColor: '#6b4e0e' }} />
+
+          {/* Fallboard / name plate area */}
+          <View style={{
+            backgroundColor: '#0b0401',
+            paddingVertical: 7,
+            alignItems: 'center',
+            borderBottomWidth: 1,
+            borderBottomColor: '#2e1408',
+          }}>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: '#9e7514',
+              paddingHorizontal: 18,
+              paddingVertical: 3,
+            }}>
+              <Text style={{ color: '#c4991e', fontSize: 10, letterSpacing: 7, fontWeight: '200' }}>◆  VOXXY  ◆</Text>
+            </View>
+          </View>
+
+          {/* Shadow gap under fallboard */}
+          <View style={{ height: 3, backgroundColor: '#040200' }} />
+
+          {/* Key bed — recessed with thick side cheeks */}
+          <View style={{
+            backgroundColor: '#060300',
+            paddingHorizontal: KEY_BED_PAD,
+            paddingTop: 6,
+            borderLeftWidth: 6,
+            borderRightWidth: 6,
+            borderLeftColor: '#1e0c03',
+            borderRightColor: '#1e0c03',
+          }}>
+            <View style={{ position: 'relative' }}>
+              <Piano pressedKeys={pressedKeys} octaves={displayOctaves} />
+              {keyOverlay}
+            </View>
+          </View>
+
+          {/* Key slip — decorative bottom strip */}
+          <View style={{
+            height: 14,
+            backgroundColor: '#130700',
+            borderTopWidth: 2,
+            borderTopColor: '#2e1408',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <View style={{ width: 40, height: 2, backgroundColor: '#9e7514', borderRadius: 1, opacity: 0.5 }} />
+          </View>
         </View>
-      )}
+      </View>
     </View>
   );
 };
