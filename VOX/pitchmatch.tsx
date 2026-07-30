@@ -47,6 +47,7 @@ const BANDS = [
   { min: 85, color: '#5f7878' }, // average — steel blue-green
   { min: 0,  color: '#607080' }, // off — slate grey
 ];
+const BAND_WEIGHTS = [5, 4, 3, 2, 0];
 
 function bandIndexFromColor(color: string): number {
   const idx = BANDS.findIndex(b => b.color === color);
@@ -54,6 +55,21 @@ function bandIndexFromColor(color: string): number {
 }
 function boxCenterY(bandIdx: number): number {
   return BOX_TOP_START + bandIdx * (BOX_H + BOX_GAP) + BOX_H / 2;
+}
+
+function scoreLabel(s: number): string {
+  if (s >= 90) return 'STELLAR';
+  if (s >= 75) return 'EXCELLENT';
+  if (s >= 55) return 'SOLID';
+  if (s >= 40) return 'KEEP AT IT';
+  return 'NEEDS WORK';
+}
+function scoreColor(s: number): string {
+  if (s >= 90) return '#b8f0ff';
+  if (s >= 75) return '#00e676';
+  if (s >= 55) return '#7a8c5a';
+  if (s >= 40) return '#5f7878';
+  return '#607080';
 }
 
 function bandColor(score: number): string {
@@ -92,7 +108,9 @@ interface PitchMatchScreenProps {
 const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
   const [userProfile, setUserProfile]   = useState(new Profile());
   const [hz, setHz]                     = useState(0);
-  const [note, setNote]                 = useState('');
+  const [liveAccuracy, setLiveAccuracy] = useState(0);
+  const liveSumRef   = useRef(0);
+  const liveCountRef = useRef(0);
   const [pitchLine, setPitchLine]       = useState<Array<{top: number, left: number, color: string, born: number}>>([]);
   const [currentColor, setCurrentColor] = useState('#ffffff');
   const [started, setStarted]           = useState(false);
@@ -118,6 +136,8 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
   const animLo              = useRef(new Animated.Value(65.41)).current;
   const animHi              = useRef(new Animated.Value(1046.5)).current;
   const glowAnim            = useRef(new Animated.Value(0)).current;
+  const scoreCountAnim      = useRef(new Animated.Value(0)).current;
+  const scoreLandAnim       = useRef(new Animated.Value(1)).current;
   const lastPerfectFireRef  = useRef(0);
   const scoringDotsRef      = useRef<Array<{top: number, left: number, color: string, born: number}>>([]);
   const onScoringEndRef     = useRef<() => void>(() => {});
@@ -127,6 +147,8 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
   }>>([]);
   const [boxFull, setBoxFull]         = useState(false);
   const [tierCounts, setTierCounts]   = useState<number[]>([0,0,0,0,0]);
+  const [finalScore, setFinalScore]           = useState(0);
+  const [displayedScore, setDisplayedScore]   = useState(0);
   const particles          = useRef(
     Array.from({ length: NUM_PARTICLES }, () => ({
       tx: new Animated.Value(0),
@@ -175,10 +197,14 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
     const subScoreX = scoreX.addListener(({ value }) => {
       squareLeftRef.current = value;
     });
+    const subCount = scoreCountAnim.addListener(({ value }) => {
+      setDisplayedScore(Math.floor(value));
+    });
     return () => {
       animLo.removeListener(subLo);
       animHi.removeListener(subHi);
       scoreX.removeListener(subScoreX);
+      scoreCountAnim.removeListener(subCount);
     };
   }, []);
 
@@ -260,11 +286,16 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
             const next = [dot, ...prev];
             return next.length > MAX_TAIL ? next.slice(0, MAX_TAIL) : next;
           });
+          if (hasTargetRef.current && targetPitchRef.current && value.frequency > 0) {
+            const rawScore = Grade.grade(targetPitchRef.current.frequency, value.frequency);
+            liveSumRef.current   += rawScore;
+            liveCountRef.current += 1;
+            setLiveAccuracy(Math.round(liveSumRef.current / liveCountRef.current));
+          }
         }
 
         setCurrentColor(color);
         setHz(value.frequency);
-        setNote(value.tone);
       });
     } catch (e) {
       console.error('Failed to start pitch detector:', e);
@@ -299,8 +330,24 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
     if (dots.length === 0) return;
     const counts = [0, 0, 0, 0, 0];
     dots.forEach(d => { counts[bandIndexFromColor(d.color)]++; });
+    const totalDots   = counts.reduce((a, b) => a + b, 0);
+    const totalPoints = counts.reduce((sum, cnt, i) => sum + cnt * BAND_WEIGHTS[i], 0);
+    const weighted    = totalDots > 0 ? Math.round((totalPoints / (totalDots * 5)) * 100) : 0;
+    setFinalScore(weighted);
     setTierCounts(counts);
     setBoxFull(true);
+    scoreCountAnim.setValue(0);
+    scoreLandAnim.setValue(1);
+    Animated.timing(scoreCountAnim, {
+      toValue: weighted,
+      duration: 1400,
+      useNativeDriver: false,
+    }).start(() => {
+      Animated.sequence([
+        Animated.timing(scoreLandAnim, { toValue: 1.25, duration: 140, useNativeDriver: true }),
+        Animated.timing(scoreLandAnim, { toValue: 1.0,  duration: 220, useNativeDriver: true }),
+      ]).start();
+    });
     const items = dots.map(dot => ({
       ...dot,
       tx: new Animated.Value(0),
@@ -339,6 +386,13 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
     setAnimTail([]);
     setBoxFull(false);
     setTierCounts([0,0,0,0,0]);
+    setFinalScore(0);
+    setDisplayedScore(0);
+    setLiveAccuracy(0);
+    liveSumRef.current   = 0;
+    liveCountRef.current = 0;
+    scoreCountAnim.setValue(0);
+    scoreLandAnim.setValue(1);
     recentFreqsRef.current = [];
     setPitchLine([]);
     scoreX.stopAnimation();
@@ -519,16 +573,37 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
         ))}
       </View>
 
-      <View style={styles.controls}>
-        <Text style={styles.titleText}>
-          {note ? `Pitch: ${Pitches.displayTone(note)}` : ''}
-        </Text>
-      </View>
-      <View style={styles.controls}>
-        <Text style={styles.titleText}>
-          {hz > 0 ? hz.toFixed(1) : ''}
-        </Text>
-      </View>
+      {boxFull ? (
+        <View style={{ alignItems: 'center', paddingTop: 14, paddingBottom: 6 }}>
+          <Animated.Text style={{
+            fontSize: 72,
+            fontWeight: '800',
+            color: '#ffffff',
+            transform: [{ scale: scoreLandAnim }],
+            letterSpacing: -2,
+          }}>
+            {displayedScore}
+          </Animated.Text>
+          <Text style={{
+            fontSize: 13,
+            fontWeight: '700',
+            color: scoreColor(finalScore),
+            letterSpacing: 5,
+            marginTop: 2,
+            opacity: 0.85,
+          }}>
+            {scoreLabel(finalScore)}
+          </Text>
+        </View>
+      ) : (
+        <View style={{ alignItems: 'center', paddingTop: 16 }}>
+          {liveAccuracy > 0 && (
+            <Text style={{ fontSize: 36, fontWeight: '700', color: bandColor(liveAccuracy), letterSpacing: -1 }}>
+              {liveAccuracy}%
+            </Text>
+          )}
+        </View>
+      )}
     </SafeAreaView>
   );
 };

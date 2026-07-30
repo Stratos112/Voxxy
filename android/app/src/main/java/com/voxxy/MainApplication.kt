@@ -1,6 +1,7 @@
 package com.voxxy
 
 import android.app.Application
+import org.wonday.orientation.OrientationActivityLifecycle
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
@@ -33,6 +34,7 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    registerActivityLifecycleCallbacks(OrientationActivityLifecycle.getInstance())
     loadReactNative(this)
   }
 }
