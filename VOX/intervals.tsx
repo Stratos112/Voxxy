@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, TouchableOpacity, Text, Image, StatusBar, useWindowDimensions,
 } from 'react-native';
+import Orientation from 'react-native-orientation-locker';
 import { Profile } from './profile';
 import { Pitch, Pitches } from './API/pitch';
 import Piano, { pitchToKey } from './UI/Piano';
@@ -20,9 +21,7 @@ interface IntervalScreenProps {
 const ALL_SEMITONES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const SIDE_PAD = 48;
 
-// White keys in octave order
 const WHITE_KEYS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
-// Black keys: pos = how many white-key-widths from the octave left edge to this key's center
 const BLACK_KEYS = [
   { name: 'C#', pos: 1 },
   { name: 'D#', pos: 2 },
@@ -36,14 +35,9 @@ function octaveOf(p: Pitch): number {
   return m ? parseInt(m[1]) : 4;
 }
 
-function calcDisplayOctaves(rootOct: number, intervalOct: number, lW: number): number[] {
-  const count = Math.max(2, Math.min(4, Math.floor(lW / 130)));
-  const minOct = Math.min(rootOct, intervalOct);
-  const maxOct = Math.max(rootOct, intervalOct);
-  let start = minOct;
-  if (maxOct - start >= count) start = rootOct;
-  start = Math.max(1, Math.min(start, 7 - count + 1));
-  return Array.from({ length: count }, (_, i) => start + i);
+function calcDisplayOctaves(rootOct: number, intervalOct: number): number[] {
+  const start = Math.max(1, rootOct - 1);
+  return [start, start + 1, start + 2];
 }
 
 function pickRoot(pitches: Pitch[], low: Pitch, high: Pitch): Pitch {
@@ -81,12 +75,6 @@ type Phase = 'idle' | 'playing' | 'guessing';
 
 const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
   const { width: W, height: H } = useWindowDimensions();
-  const lW = Math.max(W, H);
-  const lH = Math.min(W, H);
-  const needsRotation = W < H;
-
-  const lWRef = useRef(lW);
-  useEffect(() => { lWRef.current = lW; }, [lW]);
 
   const [ready, setReady] = useState(false);
   const [phase, setPhase] = useState<Phase>('idle');
@@ -100,6 +88,7 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
   const gapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    Orientation.lockToLandscape();
     const init = async () => {
       await Pitches.setupPlayer();
       const profile = new Profile();
@@ -111,6 +100,7 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
     };
     init();
     return () => {
+      Orientation.unlockAllOrientations();
       gapTimer.current && clearTimeout(gapTimer.current);
       abortPlay.current?.();
     };
@@ -125,7 +115,7 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
     const interval = pickIntervalPitch(root, userLow.current, userHigh.current, filtered.current);
     if (!interval) return;
 
-    const octaves = calcDisplayOctaves(octaveOf(root), octaveOf(interval), lWRef.current);
+    const octaves = calcDisplayOctaves(octaveOf(root), octaveOf(interval));
     setDisplayOctaves(octaves);
     setPhase('playing');
     setPressedKeys([pitchToKey(root)]);
@@ -142,7 +132,6 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
 
   useEffect(() => { if (ready) playRound(); }, [ready]);
 
-  // Called by overlay key cells — no coordinate math needed
   const handleNotePress = useCallback((noteName: string, octave: number) => {
     abortPlay.current?.();
     const pitch = filtered.current.find(p => p.name === `${noteName}${octave}`);
@@ -159,9 +148,7 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
     onBack();
   };
 
-  // Invisible key cells overlay — rendered in the same coordinate space as the Piano,
-  // so no screen-to-local conversion is needed. White cells first, black cells on top.
-  const pianoWidth = lW - 2 * SIDE_PAD;
+  const pianoWidth = W - 2 * SIDE_PAD;
   const octW = pianoWidth / displayOctaves.length;
   const whiteW = octW / 7;
   const blackW = whiteW * 0.6;
@@ -206,9 +193,10 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
     </View>
   ) : null;
 
-  const landscapeContent = (
-    <View style={{ width: lW, height: lH, backgroundColor: '#282c2eff' }}>
-      {/* Back button */}
+  return (
+    <View style={{ flex: 1, backgroundColor: '#282c2eff' }}>
+      <StatusBar hidden />
+
       <TouchableOpacity
         onPress={handleBack}
         style={{
@@ -226,7 +214,6 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
         />
       </TouchableOpacity>
 
-      {/* Piano + key overlay */}
       <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: SIDE_PAD }}>
         <View style={{ position: 'relative' }}>
           <Piano pressedKeys={pressedKeys} octaves={displayOctaves} />
@@ -234,7 +221,6 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
         </View>
       </View>
 
-      {/* Play Again */}
       {phase === 'guessing' && (
         <View style={{ alignItems: 'center', paddingBottom: 16 }}>
           <TouchableOpacity
@@ -245,33 +231,6 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
           </TouchableOpacity>
         </View>
       )}
-    </View>
-  );
-
-  if (!needsRotation) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#282c2eff' }}>
-        <StatusBar hidden />
-        {landscapeContent}
-      </View>
-    );
-  }
-
-  return (
-    <View style={{ flex: 1, backgroundColor: '#282c2eff' }}>
-      <StatusBar hidden />
-      <View
-        style={{
-          position: 'absolute',
-          width: lW,
-          height: lH,
-          top: (H - lH) / 2,
-          left: (W - lW) / 2,
-          transform: [{ rotate: '-90deg' }],
-        }}
-      >
-        {landscapeContent}
-      </View>
     </View>
   );
 };
