@@ -19,23 +19,34 @@ interface IntervalScreenProps {
 }
 
 const ALL_SEMITONES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-const SIDE_PAD = 48;
+const CAB_MARGIN = 6;
+const CAB_KEY_LEFT = 109 / 1407;
+const CAB_KEY_TOP = 100 / 329;
+
+const INTERVAL_NAMES: Record<number, string> = {
+  1: 'Minor 2nd', 2: 'Major 2nd', 3: 'Minor 3rd', 4: 'Major 3rd',
+  5: 'Perfect 4th', 6: 'Tritone', 7: 'Perfect 5th', 8: 'Minor 6th',
+  9: 'Major 6th', 10: 'Minor 7th', 11: 'Major 7th', 12: 'Octave',
+};
+function intervalName(n: number): string {
+  return INTERVAL_NAMES[Math.abs(n)] ?? `${Math.abs(n)} st`;
+}
 
 const WHITE_KEYS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 const BLACK_KEYS = [
-  { name: 'C#', pos: 1 },
-  { name: 'D#', pos: 2 },
-  { name: 'F#', pos: 4 },
-  { name: 'G#', pos: 5 },
-  { name: 'A#', pos: 6 },
+  { name: 'C#', pos: 1 }, { name: 'D#', pos: 2 },
+  { name: 'F#', pos: 4 }, { name: 'G#', pos: 5 }, { name: 'A#', pos: 6 },
 ];
+const SHARP_TO_FLAT: Record<string, string> = {
+  'C#': 'Db', 'D#': 'Eb', 'F#': 'Gb', 'G#': 'Ab', 'A#': 'Bb',
+};
 
 function octaveOf(p: Pitch): number {
   const m = p.name.match(/(\d+)$/);
   return m ? parseInt(m[1]) : 4;
 }
 
-function calcDisplayOctaves(rootOct: number, intervalOct: number): number[] {
+function calcDisplayOctaves(rootOct: number, _intervalOct: number): number[] {
   const start = Math.max(1, rootOct - 1);
   return [start, start + 1, start + 2];
 }
@@ -74,18 +85,25 @@ function pickIntervalPitch(root: Pitch, low: Pitch, high: Pitch, pitches: Pitch[
 type Phase = 'idle' | 'playing' | 'guessing';
 
 const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
-  const { width: W, height: H } = useWindowDimensions();
+  const { width: W } = useWindowDimensions();
 
-  const [ready, setReady] = useState(false);
   const [phase, setPhase] = useState<Phase>('idle');
   const [pressedKeys, setPressedKeys] = useState<string[]>([]);
   const [displayOctaves, setDisplayOctaves] = useState<number[]>([3, 4, 5]);
+  const [guessKey, setGuessKey] = useState<string | null>(null);
+  const [semitoneOff, setSemitoneOff] = useState<number | null>(null);
+  const [guessedInterval, setGuessedInterval] = useState<number | null>(null);
+  const [correctInterval, setCorrectInterval] = useState<number | null>(null);
+  const [revealed, setRevealed] = useState(false);
+  const [rootNoteName, setRootNoteName] = useState<string | null>(null);
 
   const userLow = useRef<Pitch>(Pitches.C2);
   const userHigh = useRef<Pitch>(Pitches.C6);
   const filtered = useRef<Pitch[]>([]);
   const abortPlay = useRef<(() => void) | null>(null);
   const gapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rootPitchRef = useRef<Pitch | null>(null);
+  const intervalPitchRef = useRef<Pitch | null>(null);
 
   useEffect(() => {
     Orientation.lockToLandscape();
@@ -96,7 +114,6 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
       userLow.current = profile.low_range;
       userHigh.current = profile.high_range;
       filtered.current = Pitches.filteredPitches();
-      setReady(true);
     };
     init();
     return () => {
@@ -110,10 +127,20 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
     gapTimer.current && clearTimeout(gapTimer.current);
     abortPlay.current?.();
     setPressedKeys([]);
+    setGuessKey(null);
+    setSemitoneOff(null);
+    setGuessedInterval(null);
+    setCorrectInterval(null);
+    setRevealed(false);
 
     const root = pickRoot(filtered.current, userLow.current, userHigh.current);
     const interval = pickIntervalPitch(root, userLow.current, userHigh.current, filtered.current);
     if (!interval) return;
+
+    rootPitchRef.current = root;
+    intervalPitchRef.current = interval;
+    setRootNoteName(root.name.replace(/\d+$/, ''));
+    setCorrectInterval(Math.abs(interval.id - root.id));
 
     const octaves = calcDisplayOctaves(octaveOf(root), octaveOf(interval));
     setDisplayOctaves(octaves);
@@ -121,7 +148,6 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
     setPressedKeys([pitchToKey(root)]);
 
     abortPlay.current = Pitches.playMono([root], undefined, () => {
-      setPressedKeys([]);
       gapTimer.current = setTimeout(() => {
         abortPlay.current = Pitches.playMono([interval], undefined, () => {
           setPhase('guessing');
@@ -130,14 +156,53 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
     });
   }, []);
 
-
   const handleNotePress = useCallback((noteName: string, octave: number) => {
     abortPlay.current?.();
-    const pitch = filtered.current.find(p => p.name === `${noteName}${octave}`);
+    const flat = SHARP_TO_FLAT[noteName] ?? noteName;
+    const pitch = filtered.current.find(
+      p => p.name === `${noteName}${octave}` || p.name === `${flat}${octave}`
+    );
     if (!pitch) return;
-    setPressedKeys([pitchToKey(pitch)]);
-    abortPlay.current = Pitches.playMono([pitch], undefined, () => {
-      setPressedKeys([]);
+    const key = pitchToKey(pitch);
+    const correct = intervalPitchRef.current;
+    const root = rootPitchRef.current;
+    setGuessKey(key);
+    setSemitoneOff(correct ? Math.abs(pitch.id - correct.id) : 99);
+    setGuessedInterval(root ? Math.abs(pitch.id - root.id) : 0);
+    setPressedKeys([]);
+    abortPlay.current = Pitches.playMono([pitch]);
+  }, []);
+
+  const handleHearAgain = useCallback(() => {
+    gapTimer.current && clearTimeout(gapTimer.current);
+    abortPlay.current?.();
+    const root = rootPitchRef.current;
+    const interval = intervalPitchRef.current;
+    if (!root || !interval) return;
+    setPressedKeys([pitchToKey(root)]);
+    abortPlay.current = Pitches.playMono([root], undefined, () => {
+      gapTimer.current = setTimeout(() => {
+        abortPlay.current = Pitches.playMono([interval], undefined, () => {
+          setPressedKeys([]);
+        });
+      }, 350);
+    });
+  }, []);
+
+  const handleReveal = useCallback(() => {
+    gapTimer.current && clearTimeout(gapTimer.current);
+    abortPlay.current?.();
+    const root = rootPitchRef.current;
+    const interval = intervalPitchRef.current;
+    if (!root || !interval) return;
+    setRevealed(true);
+    setPressedKeys([pitchToKey(root)]);
+    abortPlay.current = Pitches.playMono([root], undefined, () => {
+      gapTimer.current = setTimeout(() => {
+        abortPlay.current = Pitches.playMono([interval], undefined, () => {
+          setPressedKeys([]);
+        });
+      }, 350);
     });
   }, []);
 
@@ -147,31 +212,64 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
     onBack();
   };
 
-  const KEY_BED_PAD = 10;
-  const EXTRA_RIGHT = 16;
-  const KEY_BED_BORDER = 6;
-  const pianoWidth = W - 2 * SIDE_PAD - EXTRA_RIGHT - 2 * KEY_BED_PAD - 2 * KEY_BED_BORDER;
+  const cabinetW = W - 2 * CAB_MARGIN;
+  const cabinetH = cabinetW * (329 / 1407);
+  const pianoWidth = cabinetW * (1182 / 1407);
+  const keyLeft = cabinetW * CAB_KEY_LEFT;
+  const keyTop = cabinetH * CAB_KEY_TOP;
   const octW = pianoWidth / displayOctaves.length;
   const whiteW = octW / 7;
   const blackW = whiteW * 0.6;
 
-  const keyOverlay = phase === 'guessing' ? (
-    <View
-      style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-      pointerEvents="box-none"
-    >
+  function keyPos(keyStr: string) {
+    const m = keyStr.match(/^([A-G]#?)(\d+)$/);
+    if (!m) return null;
+    const oi = displayOctaves.indexOf(parseInt(m[2]));
+    if (oi < 0) return null;
+    const wIdx = WHITE_KEYS.indexOf(m[1]);
+    if (wIdx >= 0) return { left: oi * octW + wIdx * whiteW, width: whiteW, isBlack: false };
+    const bk = BLACK_KEYS.find(k => k.name === m[1]);
+    if (bk) return { left: oi * octW + bk.pos * whiteW - blackW / 2, width: blackW, isBlack: true };
+    return null;
+  }
+
+  const guessAccent = semitoneOff === 0 ? '#00e060' : semitoneOff === 1 ? '#ff9900' : '#ff3344';
+  const guessAlpha = semitoneOff === 0 ? '#00e06060' : semitoneOff === 1 ? '#ff990060' : '#ff334460';
+
+  function renderKeyHighlight(keyStr: string, color: string, label: string) {
+    const pos = keyPos(keyStr);
+    if (!pos) return null;
+    const { left, width, isBlack } = pos;
+    const sizeStyle = isBlack
+      ? { top: 0, height: '60%' as any }
+      : { top: 0, bottom: 0 };
+    return (
+      <View pointerEvents="none" key={`hl-${keyStr}-${label}`}>
+        <View style={{ position: 'absolute', left, width, ...sizeStyle, backgroundColor: color }} />
+        <View style={{
+          position: 'absolute',
+          left: left + width / 2 - 40,
+          top: 6, width: 80,
+          backgroundColor: color.slice(0, 7) + 'dd',
+          borderRadius: 8, paddingHorizontal: 4, paddingVertical: 2,
+          alignItems: 'center',
+        }}>
+          <Text style={{ color: '#fff', fontSize: 8, fontWeight: '700', letterSpacing: 0.3 }} numberOfLines={1}>
+            {label}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  const keyOverlay = phase === 'guessing' && !guessKey ? (
+    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} pointerEvents="box-none">
       {WHITE_KEYS.map((name, ki) =>
         displayOctaves.map((octave, oi) => (
           <TouchableOpacity
             key={`w-${name}-${octave}`}
             activeOpacity={0.2}
-            style={{
-              position: 'absolute',
-              left: oi * octW + ki * whiteW,
-              width: whiteW,
-              top: 0,
-              bottom: 0,
-            }}
+            style={{ position: 'absolute', left: oi * octW + ki * whiteW, width: whiteW, top: 0, bottom: 0 }}
             onPress={() => handleNotePress(name, octave)}
           />
         ))
@@ -181,19 +279,24 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
           <TouchableOpacity
             key={`b-${name}-${octave}`}
             activeOpacity={0.2}
-            style={{
-              position: 'absolute',
-              left: oi * octW + pos * whiteW - blackW / 2,
-              width: blackW,
-              top: 0,
-              height: '60%',
-            }}
+            style={{ position: 'absolute', left: oi * octW + pos * whiteW - blackW / 2, width: blackW, top: 0, height: '60%' }}
             onPress={() => handleNotePress(name, octave)}
           />
         ))
       )}
     </View>
   ) : null;
+
+  const guessHighlight = guessKey
+    ? renderKeyHighlight(guessKey, guessAlpha, guessedInterval !== null ? intervalName(guessedInterval) : '?')
+    : null;
+
+  const correctKey = intervalPitchRef.current ? pitchToKey(intervalPitchRef.current) : null;
+  const revealHighlight = revealed && correctKey
+    ? renderKeyHighlight(correctKey, '#00e06060', correctInterval !== null ? intervalName(correctInterval) : '?')
+    : null;
+
+  const guessNoteName = guessKey ? guessKey.replace(/\d+$/, '') : '—';
 
   return (
     <View style={{ flex: 1, backgroundColor: '#282c2eff' }}>
@@ -202,29 +305,31 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8 }}>
         <TouchableOpacity
           onPress={handleBack}
-          style={{
-            width: 36, height: 36, borderRadius: 6,
-            backgroundColor: '#04756cff',
-            justifyContent: 'center', alignItems: 'center',
-            elevation: 8,
-          }}
+          style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: '#04756cff', justifyContent: 'center', alignItems: 'center', elevation: 8 }}
         >
-          <Image
-            source={require('../static/back-arrow.png')}
-            style={{ width: 20, height: 20, tintColor: '#ffffff' }}
-            resizeMode="contain"
-          />
+          <Image source={require('../static/back-arrow.png')} style={{ width: 20, height: 20, tintColor: '#ffffff' }} resizeMode="contain" />
         </TouchableOpacity>
 
-        <View style={{ flex: 1, alignItems: 'center' }}>
+        <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
           {(phase === 'idle' || phase === 'guessing') && (
+            <TouchableOpacity style={[styles.primaryButton, { width: 150, marginVertical: 0 }]} onPress={playRound}>
+              <Text style={styles.buttonText}>{phase === 'idle' ? '▶  Play' : '▶  Play Again'}</Text>
+            </TouchableOpacity>
+          )}
+          {phase === 'guessing' && guessKey && (
             <TouchableOpacity
-              style={[styles.primaryButton, { width: 160, marginVertical: 0 }]}
-              onPress={playRound}
+              style={[styles.primaryButton, { width: 140, marginVertical: 0, backgroundColor: '#2a1e00' }]}
+              onPress={handleHearAgain}
             >
-              <Text style={styles.buttonText}>
-                {phase === 'idle' ? '▶  Play' : '▶  Play Again'}
-              </Text>
+              <Text style={[styles.buttonText, { color: '#c4991e' }]}>♪  Hear Again</Text>
+            </TouchableOpacity>
+          )}
+          {phase === 'guessing' && guessKey && !revealed && (
+            <TouchableOpacity
+              style={[styles.primaryButton, { width: 110, marginVertical: 0, backgroundColor: '#160e28' }]}
+              onPress={handleReveal}
+            >
+              <Text style={[styles.buttonText, { color: '#9b7ee0' }]}>Reveal</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -232,73 +337,54 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
         <View style={{ width: 36 }} />
       </View>
 
-      <View style={{ paddingLeft: SIDE_PAD, paddingRight: SIDE_PAD + EXTRA_RIGHT, paddingTop: 8, paddingBottom: 28 }}>
-        {/* Outer cabinet — dark ebony/rosewood shell */}
+      {/* Cabinet + Piano */}
+      <View style={{ marginHorizontal: CAB_MARGIN, marginTop: 4 }}>
+        <View style={{ position: 'relative', width: cabinetW, height: cabinetH }}>
+          <Image
+            source={require('../static/piano/cabinet.png')}
+            style={{ width: cabinetW, height: cabinetH }}
+            resizeMode="stretch"
+          />
+          <View style={{ position: 'absolute', left: keyLeft, top: keyTop, width: pianoWidth }}>
+            <Piano pressedKeys={pressedKeys} octaves={displayOctaves} />
+            {keyOverlay}
+            {guessHighlight}
+            {revealHighlight}
+          </View>
+        </View>
+      </View>
+
+      {/* Display panel */}
+      <View style={{ flexDirection: 'row', marginHorizontal: CAB_MARGIN, paddingTop: 10, gap: 10 }}>
         <View style={{
-          backgroundColor: '#130700',
-          borderRadius: 14,
-          borderWidth: 2,
-          borderColor: '#5c2410',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 18 },
-          shadowOpacity: 1,
-          shadowRadius: 28,
-          elevation: 36,
-          overflow: 'hidden',
+          flex: 1, backgroundColor: '#0b1714', borderRadius: 10,
+          borderWidth: 1, borderColor: '#2bc0a030',
+          paddingVertical: 8, alignItems: 'center',
         }}>
-          {/* Brass accent rail */}
-          <View style={{ height: 7, backgroundColor: '#9e7514', borderBottomWidth: 1, borderBottomColor: '#6b4e0e' }} />
+          <Text style={{ color: '#2bc0a055', fontSize: 9, letterSpacing: 2, fontWeight: '600', marginBottom: 2 }}>ROOT</Text>
+          <Text style={{ color: '#2bc0a0', fontSize: 22, fontWeight: '700' }}>{rootNoteName ?? '—'}</Text>
+        </View>
 
-          {/* Fallboard / name plate area */}
-          <View style={{
-            backgroundColor: '#0b0401',
-            paddingVertical: 7,
-            alignItems: 'center',
-            borderBottomWidth: 1,
-            borderBottomColor: '#2e1408',
-          }}>
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              borderWidth: 1,
-              borderColor: '#9e7514',
-              paddingHorizontal: 18,
-              paddingVertical: 3,
-            }}>
-              <Text style={{ color: '#c4991e', fontSize: 10, letterSpacing: 7, fontWeight: '200' }}>◆  VOXXY  ◆</Text>
-            </View>
-          </View>
+        <View style={{
+          flex: 1, backgroundColor: '#0d1018', borderRadius: 10,
+          borderWidth: 1, borderColor: guessKey ? guessAlpha : '#ffffff15',
+          paddingVertical: 8, alignItems: 'center',
+        }}>
+          <Text style={{ color: '#ffffff44', fontSize: 9, letterSpacing: 2, fontWeight: '600', marginBottom: 2 }}>YOUR NOTE</Text>
+          <Text style={{ color: guessKey ? guessAccent : '#ffffff30', fontSize: 22, fontWeight: '700' }}>
+            {guessNoteName}
+          </Text>
+        </View>
 
-          {/* Shadow gap under fallboard */}
-          <View style={{ height: 3, backgroundColor: '#040200' }} />
-
-          {/* Key bed — recessed with thick side cheeks */}
-          <View style={{
-            backgroundColor: '#060300',
-            paddingHorizontal: KEY_BED_PAD,
-            paddingTop: 6,
-            borderLeftWidth: 6,
-            borderRightWidth: 6,
-            borderLeftColor: '#1e0c03',
-            borderRightColor: '#1e0c03',
-          }}>
-            <View style={{ position: 'relative' }}>
-              <Piano pressedKeys={pressedKeys} octaves={displayOctaves} />
-              {keyOverlay}
-            </View>
-          </View>
-
-          {/* Key slip — decorative bottom strip */}
-          <View style={{
-            height: 14,
-            backgroundColor: '#130700',
-            borderTopWidth: 2,
-            borderTopColor: '#2e1408',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-            <View style={{ width: 40, height: 2, backgroundColor: '#9e7514', borderRadius: 1, opacity: 0.5 }} />
-          </View>
+        <View style={{
+          flex: 2, backgroundColor: '#120e06', borderRadius: 10,
+          borderWidth: 1, borderColor: '#9e751435',
+          paddingVertical: 8, paddingHorizontal: 8, alignItems: 'center',
+        }}>
+          <Text style={{ color: '#9e751455', fontSize: 9, letterSpacing: 2, fontWeight: '600', marginBottom: 2 }}>INTERVAL</Text>
+          <Text style={{ color: revealed ? '#c4991e' : '#9e751430', fontSize: 16, fontWeight: '700' }}>
+            {revealed && correctInterval !== null ? intervalName(correctInterval) : '— — —'}
+          </Text>
         </View>
       </View>
     </View>
