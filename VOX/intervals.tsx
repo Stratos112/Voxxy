@@ -150,6 +150,7 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
     abortPlay.current = Pitches.playMono([root], undefined, () => {
       gapTimer.current = setTimeout(() => {
         abortPlay.current = Pitches.playMono([interval], undefined, () => {
+          setPressedKeys([pitchToKey(root)]);
           setPhase('guessing');
         });
       }, 350);
@@ -169,8 +170,11 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
     setGuessKey(key);
     setSemitoneOff(correct ? Math.abs(pitch.id - correct.id) : 99);
     setGuessedInterval(root ? Math.abs(pitch.id - root.id) : 0);
-    setPressedKeys([]);
-    abortPlay.current = Pitches.playMono([pitch]);
+    const rootKey = root ? pitchToKey(root) : null;
+    setPressedKeys(rootKey ? [rootKey, key] : [key]);
+    abortPlay.current = Pitches.playMono([pitch], undefined, () => {
+      setPressedKeys([]);
+    });
   }, []);
 
   const handleHearAgain = useCallback(() => {
@@ -199,6 +203,7 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
     setPressedKeys([pitchToKey(root)]);
     abortPlay.current = Pitches.playMono([root], undefined, () => {
       gapTimer.current = setTimeout(() => {
+        setPressedKeys([pitchToKey(root), pitchToKey(interval)]);
         abortPlay.current = Pitches.playMono([interval], undefined, () => {
           setPressedKeys([]);
         });
