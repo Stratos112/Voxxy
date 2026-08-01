@@ -27,10 +27,11 @@ const ZOOM_ALPHA    = 0.28;
 const DURATION_MS   = 5000;
 const NUM_PARTICLES = 10;
 
-const BOX_W         = 40;
-const BOX_H         = 55;
-const BOX_GAP       = 8;
-const BOX_X         = -10;
+const BOX_W         = 48;
+const BOX_H         = 40;
+const BOX_GAP       = 3;
+const BOX_LEFT_START = Math.round(((pitchBoxWidth) - (5 * BOX_W +  BOX_GAP)) / 2);
+const BOX_Y         = pitchBoxHeight - 42;
 
 const PIPE_IMAGES = [
   require('../static/pipes/white_scorepipe.png'),
@@ -40,10 +41,9 @@ const PIPE_IMAGES = [
   require('../static/pipes/red_scorepipe.png'),
 ];
 const PIPEBOARD = require('../static/pipes/pipeboard_voxxy.png');
-const BOX_TOP_START = Math.round((pitchBoxHeight - (5 * BOX_H + 4 * BOX_GAP)) / 2);
 
-const SCORE_X0  = BOX_X + BOX_W + 8;  // starts in gap between boxes and bar
-const BAR_LEFT  = SCORE_X0 + 14;       // bar starts 14px right of square start
+const SCORE_X0  = 10;
+const BAR_LEFT  = 24;
 const BAR_RIGHT = pitchBoxWidth - 20;
 const BAR_WIDTH = BAR_RIGHT - BAR_LEFT;
 
@@ -62,8 +62,8 @@ function bandIndexFromColor(color: string): number {
   const idx = BANDS.findIndex(b => b.color === color);
   return idx >= 0 ? idx : BANDS.length - 1;
 }
-function boxCenterY(bandIdx: number): number {
-  return BOX_TOP_START + bandIdx * (BOX_H + BOX_GAP) + BOX_H / 2;
+function boxCenterX(bandIdx: number): number {
+  return BOX_LEFT_START + bandIdx * (BOX_W + BOX_GAP) + BOX_W / 2;
 }
 
 function scoreLabel(s: number): string {
@@ -115,11 +115,6 @@ interface PitchMatchScreenProps {
 }
 
 const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
-  const { width: _PBW, height: _PBH } = useMemo(() => Image.resolveAssetSource(PIPEBOARD), []);
-  const BOARD_W   = BOX_W;
-  const BOARD_H   = pitchBoxHeight*1.04;
-  const BOARD_TOP = BOX_TOP_START + 7 * BOX_H + 8 * BOX_GAP - BOARD_H;
-
   const [userProfile, setUserProfile]   = useState(new Profile());
   const [hz, setHz]                     = useState(0);
   const [liveAccuracy, setLiveAccuracy] = useState(0);
@@ -372,8 +367,8 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
     setPitchLine([]);
     const anims = items.map(item => {
       const idx     = bandIndexFromColor(item.color);
-      const targetX = BOX_X + BOX_W / 2 - item.left;
-      const targetY = boxCenterY(idx) - item.top;
+      const targetX = boxCenterX(idx) - item.left;
+      const targetY = BOX_Y + BOX_H / 2 - item.top;
       return Animated.parallel([
         Animated.timing(item.tx, { toValue: targetX, duration: 700, useNativeDriver: true }),
         Animated.timing(item.ty, { toValue: targetY, duration: 700, useNativeDriver: true }),
@@ -561,13 +556,12 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
 
       </View>
 
-        <View pointerEvents="none" style={{ position: 'absolute', left: -10, top: BOARD_TOP, width: BOARD_W, height: BOARD_H }}>
-          <Image
-            source={PIPEBOARD}
-            style={{ width: BOARD_W, height: BOARD_H }}
-            resizeMode="stretch"
-          />
-        </View>
+        <Image
+          source={PIPEBOARD}
+          pointerEvents="none"
+          style={{ position: 'absolute', left: 10, top: BOX_Y +25, width: pitchBoxWidth, height: BOX_H }}
+          resizeMode="stretch"
+        />
 
         {BANDS.map((_, i) => (
           <View
@@ -575,18 +569,18 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
             pointerEvents="none"
             style={{
               position: 'absolute',
-              left: 4,
-              top: BOX_TOP_START + i * (BOX_H + BOX_GAP),
+              left: BOX_LEFT_START + i * (BOX_W + BOX_GAP),
+              top: BOX_Y,
               width: BOX_W,
               height: BOX_H,
-              opacity: 1,
+              overflow: 'hidden',
               justifyContent: 'center',
               alignItems: 'center',
             }}
           >
-            <Image source={PIPE_IMAGES[i]} style={{ position: 'absolute', left: 10, width: BOX_W, height: BOX_H }} resizeMode="stretch" />
+            <Image source={PIPE_IMAGES[i]} style={{ width: BOX_H, left:2, height: BOX_W, transform: [{ rotate: '-90deg' }] }} resizeMode="stretch" />
             {boxFull && tierCounts[i] > 0 && (
-              <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', textShadowColor: '#000', textShadowRadius: 3 }}>
+              <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', textShadowColor: '#000', textShadowRadius: 3, position: 'absolute' }}>
                 {tierCounts[i]}
               </Text>
             )}
