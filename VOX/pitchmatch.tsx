@@ -27,10 +27,19 @@ const ZOOM_ALPHA    = 0.28;
 const DURATION_MS   = 5000;
 const NUM_PARTICLES = 10;
 
-const BOX_W         = 24;
+const BOX_W         = 40;
 const BOX_H         = 55;
 const BOX_GAP       = 8;
-const BOX_X         = 4;
+const BOX_X         = -10;
+
+const PIPE_IMAGES = [
+  require('../static/pipes/white_scorepipe.png'),
+  require('../static/pipes/green_scorepipe.png'),
+  require('../static/pipes/yellow_scorepipe.png'),
+  require('../static/pipes/orange_scorepipe.png'),
+  require('../static/pipes/red_scorepipe.png'),
+];
+const PIPEBOARD = require('../static/pipes/pipeboard_voxxy.png');
 const BOX_TOP_START = Math.round((pitchBoxHeight - (5 * BOX_H + 4 * BOX_GAP)) / 2);
 
 const SCORE_X0  = BOX_X + BOX_W + 8;  // starts in gap between boxes and bar
@@ -106,6 +115,11 @@ interface PitchMatchScreenProps {
 }
 
 const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
+  const { width: _PBW, height: _PBH } = useMemo(() => Image.resolveAssetSource(PIPEBOARD), []);
+  const BOARD_W   = BOX_W;
+  const BOARD_H   = pitchBoxHeight*1.04;
+  const BOARD_TOP = BOX_TOP_START + 7 * BOX_H + 8 * BOX_GAP - BOARD_H;
+
   const [userProfile, setUserProfile]   = useState(new Profile());
   const [hz, setHz]                     = useState(0);
   const [liveAccuracy, setLiveAccuracy] = useState(0);
@@ -455,6 +469,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
         </TouchableOpacity>
       </View>
 
+      <View style={{ position: 'relative' }}>
       <View style={styles.pitchBox}>
         {pitchGrid}
 
@@ -495,34 +510,6 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
             backgroundColor: currentColor,
           }]} />
         )}
-
-        {BANDS.map((band, i) => (
-          <View
-            key={`box${i}`}
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              left: BOX_X,
-              top: BOX_TOP_START + i * (BOX_H + BOX_GAP),
-              width: BOX_W,
-              height: BOX_H,
-              borderTopWidth: 2,
-              borderRightWidth: 0,
-              borderBottomWidth: 2,
-              borderLeftWidth: 2,
-              borderColor: band.color,
-              opacity: boxFull ? 1 : 0.35,
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
-            {boxFull && tierCounts[i] > 0 && (
-              <Text style={{ color: band.color, fontSize: 10, fontWeight: '700' }}>
-                {tierCounts[i]}
-              </Text>
-            )}
-          </View>
-        ))}
 
         {started && pitchLine.map(item => (
           <View
@@ -570,6 +557,40 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
               transform: [{ translateX: p.tx }, { translateY: p.ty }],
             }}
           />
+        ))}
+
+      </View>
+
+        <View pointerEvents="none" style={{ position: 'absolute', left: -10, top: BOARD_TOP, width: BOARD_W, height: BOARD_H }}>
+          <Image
+            source={PIPEBOARD}
+            style={{ width: BOARD_W, height: BOARD_H }}
+            resizeMode="stretch"
+          />
+        </View>
+
+        {BANDS.map((_, i) => (
+          <View
+            key={`box${i}`}
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: 4,
+              top: BOX_TOP_START + i * (BOX_H + BOX_GAP),
+              width: BOX_W,
+              height: BOX_H,
+              opacity: 1,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Image source={PIPE_IMAGES[i]} style={{ position: 'absolute', left: 10, width: BOX_W, height: BOX_H }} resizeMode="stretch" />
+            {boxFull && tierCounts[i] > 0 && (
+              <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', textShadowColor: '#000', textShadowRadius: 3 }}>
+                {tierCounts[i]}
+              </Text>
+            )}
+          </View>
         ))}
       </View>
 
