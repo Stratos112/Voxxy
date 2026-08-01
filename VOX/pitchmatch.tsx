@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { PitchDetector } from 'react-native-pitch-detector';
 import TrackPlayer, { Event } from 'react-native-track-player';
+import Orientation from 'react-native-orientation-locker';
 import styles, { pitchBoxHeight, pitchBoxWidth } from './UI/styles';
 import { Pitch, Pitches } from './API/pitch';
 import { Grade } from './API/grade';
@@ -166,6 +167,11 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
     }))
   ).current;
   const [perfectPos, setPerfectPos] = useState({ x: -100, y: -100 });
+
+  useEffect(() => {
+    Orientation.lockToPortrait();
+    return () => { Orientation.unlockAllOrientations(); };
+  }, []);
 
   useEffect(() => {
     const loadProfile = async () => {

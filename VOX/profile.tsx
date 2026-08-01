@@ -5,11 +5,12 @@
 **/
 
 import React , {useState, useEffect} from 'react';
-import { 
-  Text, 
+import {
+  Text,
   View,
   TouchableOpacity,
-  TextInput
+  TextInput,
+  useWindowDimensions,
  } from 'react-native';
  import styles, {pitchBoxWidth} from './UI/styles';
  import { Pitch, Pitches } from './API/pitch';
@@ -82,6 +83,8 @@ export class Profile {
 }
 
 const ProfileScreen: React.FC<ProfileProps> = ({done, onRangeSetup, onShowTutorial}) => {
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
   const [user, setUser] = useState(new Profile());
   const [name, setName] = useState<string>(user.name);
   const [low_range, setLow_range] = useState<string>(user.low_range.name);
@@ -178,63 +181,77 @@ const highRangeItems = React.useMemo(() => {
         .map(pitch => ({ label: pitch.name, value: pitch.name }));
 }, [user, preferSharps]);
 
-  return (
-    <View style={styles.profileContainer}>
-        <View style={styles.profileContainer}>
-          <Text style={[styles.titleText,{marginTop:40}]}>Profile</Text>
-          <View style={styles.form}>
-          <Text style={styles.label}>Enter your name:</Text>
-          <TextInput
-            style={[styles.input,{marginBottom:10}]}
-            onChangeText={newText => setName(newText)}
-            value={name}
-            placeholder={name}
-          />
-          <Text style={styles.label}>Vocal Range: Lowest Note</Text>
-          <Dropdown 
-            placeholder={low_range || "Select Low Note"} 
-            items={lowRangeItems}
-            value={low_range}
-            onChangeValue ={handleSetLowRange}
-          />
-          <Text style={styles.label}>Vocal Range: Highest Note</Text>
-          <Dropdown
-            placeholder={high_range || "Select High Note"}
-            items={highRangeItems}
-            value={high_range}
-            onChangeValue ={item => handleSetHighRange(item)}
-          />
-          <Text style={styles.label}>Voice Type</Text>
-          <Text style={[styles.subtitleText, {color:'#2bc0a0ff', marginLeft:10}]}>{range_class}</Text>
-          <Text style={styles.label}>Accidentals</Text>
-          <View style={{ flexDirection: 'row', marginLeft: 10, marginTop: 4, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: '#2bc0a0ff', alignSelf: 'flex-start' }}>
-            <TouchableOpacity
-              onPress={handleToggleAccidentals}
-              style={{ paddingVertical: 6, paddingHorizontal: 16, backgroundColor: preferSharps ? '#2bc0a0ff' : 'transparent' }}
-            >
-              <Text style={{ color: preferSharps ? '#16083dff' : '#2bc0a0ff', fontWeight: 'bold' }}>Sharps</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleToggleAccidentals}
-              style={{ paddingVertical: 6, paddingHorizontal: 16, backgroundColor: !preferSharps ? '#2bc0a0ff' : 'transparent' }}
-            >
-              <Text style={{ color: !preferSharps ? '#16083dff' : '#2bc0a0ff', fontWeight: 'bold' }}>Flats</Text>
-            </TouchableOpacity>
-          </View>
-          </View>
-          <TouchableOpacity style={[styles.button, {backgroundColor:"#09c9b9ff", left:10}]} onPress={onRangeSetup}>
-            <Text >Determine Your Range</Text>
+  const leftCol = (
+    <View style={{ flex: 1 }}>
+      <Text style={[styles.titleText, { marginTop: 40 }]}>Profile</Text>
+      <View style={[styles.form, isLandscape && { padding: 10, paddingTop: 4 }]}>
+        <Text style={styles.label}>Enter your name:</Text>
+        <TextInput
+          style={[styles.input, { marginBottom: isLandscape ? 4 : 10 }]}
+          onChangeText={newText => setName(newText)}
+          value={name}
+          placeholder={name}
+        />
+        <Text style={styles.label}>Vocal Range: Lowest Note</Text>
+        <Dropdown
+          placeholder={low_range || "Select Low Note"}
+          items={lowRangeItems}
+          value={low_range}
+          onChangeValue={handleSetLowRange}
+        />
+        <Text style={styles.label}>Vocal Range: Highest Note</Text>
+        <Dropdown
+          placeholder={high_range || "Select High Note"}
+          items={highRangeItems}
+          value={high_range}
+          onChangeValue={item => handleSetHighRange(item)}
+        />
+        <Text style={styles.label}>Voice Type</Text>
+        <Text style={[styles.subtitleText, { color: '#2bc0a0ff', marginLeft: 10 }]}>{range_class}</Text>
+      </View>
+    </View>
+  );
+
+  const rightCol = (
+    <View style={{ flex: 1, paddingTop: isLandscape ? 20 : 0 }}>
+      <View style={[styles.form, isLandscape && { padding: 10, paddingTop: 4 }]}>
+        <Text style={styles.label}>Accidentals</Text>
+        <View style={{ flexDirection: 'row', marginLeft: 10, marginTop: 4, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: '#2bc0a0ff', alignSelf: 'flex-start' }}>
+          <TouchableOpacity
+            onPress={handleToggleAccidentals}
+            style={{ paddingVertical: 6, paddingHorizontal: 16, backgroundColor: preferSharps ? '#2bc0a0ff' : 'transparent' }}
+          >
+            <Text style={{ color: preferSharps ? '#16083dff' : '#2bc0a0ff', fontWeight: 'bold' }}>Sharps</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, {backgroundColor:"#3a1a1a", borderWidth:1, borderColor:"#ff4444", left:10, marginTop:6}]} onPress={handleDebugReset}>
-            <Text style={{color:"#ff4444", fontSize:12}}>⚠ Reset Profile [DEBUG]</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, {backgroundColor:"transparent", borderWidth:1, borderColor:"#2bc0a0ff", left:10, marginTop:6}]} onPress={onShowTutorial}>
-            <Text style={{color:"#2bc0a0ff", fontSize:13}}>Show tutorial</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.primaryButton, {left: 10 + pitchBoxWidth * 0.2, marginTop: 6, width: '40%'}]} onPress={handleDone}>
-            <Text style={styles.backButtonText}>Done</Text>
+          <TouchableOpacity
+            onPress={handleToggleAccidentals}
+            style={{ paddingVertical: 6, paddingHorizontal: 16, backgroundColor: !preferSharps ? '#2bc0a0ff' : 'transparent' }}
+          >
+            <Text style={{ color: !preferSharps ? '#16083dff' : '#2bc0a0ff', fontWeight: 'bold' }}>Flats</Text>
           </TouchableOpacity>
         </View>
+      </View>
+      <TouchableOpacity style={[styles.button, { backgroundColor: "#09c9b9ff", left: 10, marginTop: isLandscape ? 4 : 12, paddingVertical: isLandscape ? 8 : 12 }]} onPress={onRangeSetup}>
+        <Text>Determine Your Range</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={[styles.button, { backgroundColor: "transparent", borderWidth: 1, borderColor: "#2bc0a0ff", left: 10, marginTop: isLandscape ? 4 : 6, paddingVertical: isLandscape ? 8 : 12 }]} onPress={onShowTutorial}>
+        <Text style={{ color: "#2bc0a0ff", fontSize: 13 }}>Show tutorial</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={[styles.primaryButton, { left: 10, marginTop: isLandscape ? 4 : 6, width: '60%', paddingVertical: isLandscape ? 8 : 12 }]} onPress={handleDone}>
+        <Text style={styles.backButtonText}>Done</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={[styles.button, { backgroundColor: "#3a1a1a", borderWidth: 1, borderColor: "#ff4444", left: 10, marginTop: isLandscape ? 4 : 6, paddingVertical: isLandscape ? 8 : 12 }]} onPress={handleDebugReset}>
+        <Text style={{ color: "#ff4444", fontSize: 12 }}>⚠ Reset Profile [DEBUG]</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <View style={styles.profileContainer}>
+      <View style={{ flex: 1, flexDirection: isLandscape ? 'row' : 'column' }}>
+        {leftCol}
+        {rightCol}
+      </View>
     </View>
   );
 };

@@ -71,8 +71,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     backgroundColor: '#222924d0',
     position:'absolute',
-    height:height,
-    width:width
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   dividerBox: {
     flexDirection: 'column',
