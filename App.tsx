@@ -15,6 +15,7 @@ import {
   View,
   TouchableOpacity,
   Platform,
+  useWindowDimensions,
  } from 'react-native';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
@@ -30,8 +31,10 @@ import ProfileScreen, {Profile} from './VOX/profile';
 import FoxxyScreen from './VOX/foxxy';
 
 //Everything happens in here?
-const App = () => { 
+const App = () => {
 
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
   const user = new Profile();
 
   const requestPermissions = async () => {
@@ -135,56 +138,58 @@ const App = () => {
   }
 
   return (
-    <SafeAreaView style={styles.mainContainer}>
-      {showOnboarding && profileLoaded && (
-        <FoxxyScreen
-          onDone={() => setShowOnboarding(false)}
-          onRangeSetup={() => { setShowOnboarding(false); setCurrentScreen('rangeSetup'); }}
-        />
-      )}
-      {showRangeBridge && (
-        <FoxxyScreen
-          bridgeMode
-          bridgeDialog={[
-            "Nice work! We have a rough idea of your range.",
-            "Try to hit one note at a time on the edge of your range.",
-          ]}
-          finalLabel="Let's do it ▶"
-          onDone={() => { setShowRangeBridge(false); setCurrentScreen('setRange'); }}
-          onRangeSetup={() => {}}
-        />
-      )}
-      {showFinalFoxxy && (
-        <FoxxyScreen
-          finalMode
-          onDone={() => { setShowFinalFoxxy(false); user.RetreiveProfile().then(() => setRangeSet(user.range_set)); }}
-          onRangeSetup={() => {}}
-        />
-      )}
-      {!profileScreen &&
-          <TouchableOpacity onPress={handleProfile} style={{position:'absolute'}}>
-            <Image source={require('./static/gear.png')} style={styles.settingsButton}/>
+    <View style={{ flex: 1, backgroundColor: '#2cf7baff' }}>
+      <SafeAreaView style={styles.mainContainer}>
+        {showOnboarding && profileLoaded && (
+          <FoxxyScreen
+            onDone={() => setShowOnboarding(false)}
+            onRangeSetup={() => { setShowOnboarding(false); setCurrentScreen('rangeSetup'); }}
+          />
+        )}
+        {showRangeBridge && (
+          <FoxxyScreen
+            bridgeMode
+            bridgeDialog={[
+              "Nice work! We have a rough idea of your range.",
+              "Try to hit one note at a time on the edge of your range.",
+            ]}
+            finalLabel="Let's do it ▶"
+            onDone={() => { setShowRangeBridge(false); setCurrentScreen('setRange'); }}
+            onRangeSetup={() => {}}
+          />
+        )}
+        {showFinalFoxxy && (
+          <FoxxyScreen
+            finalMode
+            onDone={() => { setShowFinalFoxxy(false); user.RetreiveProfile().then(() => setRangeSet(user.range_set)); }}
+            onRangeSetup={() => {}}
+          />
+        )}
+        <View style={styles.mainContent}>
+          <Text style={styles.titleText}>Voxxy</Text>
+
+          {/* The buttons for handle changing screens*/}
+          <TouchableOpacity style={styles.button} onPress={handleSetRangePress}>
+            <Text style={styles.buttonText}>Range Expansion</Text>
           </TouchableOpacity>
-        }
-      <View style={styles.mainContent}>
-        <Text style={styles.titleText}>Voxxy</Text>
-        
-        {/* The buttons for handle changing screens*/}
-        <TouchableOpacity style={styles.button} onPress={handleSetRangePress}>
-          <Text style={styles.buttonText}>Range Expansion</Text>
+          <TouchableOpacity style={styles.button} onPress={handlePitchMatchPress}>
+            <Text style={styles.buttonText}>Pitch Match</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={handleIntervalsPress}>
+            <Text style={styles.buttonText}>Interval Training</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={handleSequencePress}>
+            <Text style={styles.buttonText}>Sequences</Text>
+          </TouchableOpacity>
+        </View>
+        {profileScreen && <ProfileScreen done={handleProfile} onRangeSetup={handleRangeSetupPress} onShowTutorial={handleShowTutorial}/>}
+      </SafeAreaView>
+      {!profileScreen &&
+        <TouchableOpacity onPress={handleProfile} style={{ position: 'absolute', top: 45, right: isLandscape ? width * 0.1 : 10, padding: 10, zIndex: 10 }}>
+          <Image source={require('./static/gear.png')} style={{ width: 28, height: 28 }} resizeMode="contain" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.button} onPress={handlePitchMatchPress}>
-          <Text style={styles.buttonText}>Pitch Match</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.button} onPress={handleIntervalsPress}>
-          <Text style={styles.buttonText}>Interval Training</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.button} onPress={handleSequencePress}>
-          <Text style={styles.buttonText}>Sequences</Text>
-        </TouchableOpacity>
-      </View>
-      {profileScreen && <ProfileScreen done={handleProfile} onRangeSetup={handleRangeSetupPress} onShowTutorial={handleShowTutorial}/>}
-    </SafeAreaView>
+      }
+    </View>
   );
 };
 
