@@ -96,6 +96,7 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
   const [correctInterval, setCorrectInterval] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [rootNoteName, setRootNoteName] = useState<string | null>(null);
+  const [wrongGuesses, setWrongGuesses] = useState(0);
 
   const userLow = useRef<Pitch>(Pitches.C2);
   const userHigh = useRef<Pitch>(Pitches.C6);
@@ -132,6 +133,7 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
     setGuessedInterval(null);
     setCorrectInterval(null);
     setRevealed(false);
+    setWrongGuesses(0);
 
     const root = pickRoot(filtered.current, userLow.current, userHigh.current);
     const interval = pickIntervalPitch(root, userLow.current, userHigh.current, filtered.current);
@@ -167,9 +169,11 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
     const key = pitchToKey(pitch);
     const correct = intervalPitchRef.current;
     const root = rootPitchRef.current;
+    const off = correct ? Math.abs(pitch.id - correct.id) : 99;
     setGuessKey(key);
-    setSemitoneOff(correct ? Math.abs(pitch.id - correct.id) : 99);
+    setSemitoneOff(off);
     setGuessedInterval(root ? Math.abs(pitch.id - root.id) : 0);
+    if (off !== 0) setWrongGuesses(prev => Math.min(prev + 1, 3));
     const rootKey = root ? pitchToKey(root) : null;
     setPressedKeys(rootKey ? [rootKey, key] : [key]);
     abortPlay.current = Pitches.playMono([pitch], undefined, () => {
@@ -267,7 +271,7 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
     );
   }
 
-  const keyOverlay = phase === 'guessing' && !guessKey ? (
+  const keyOverlay = phase === 'guessing' && (guessKey === null || (semitoneOff !== 0 && wrongGuesses < 3)) ? (
     <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} pointerEvents="box-none">
       {WHITE_KEYS.map((name, ki) =>
         displayOctaves.map((octave, oi) => (
@@ -318,10 +322,10 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
         <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
           {(phase === 'idle' || phase === 'guessing') && (
             <TouchableOpacity style={[styles.primaryButton, { width: 150, marginVertical: 0 }]} onPress={playRound}>
-              <Text style={styles.buttonText}>{phase === 'idle' ? '▶  Play' : '▶  Play Again'}</Text>
+              <Text style={styles.buttonText}>{phase === 'idle' ? '▶  Play' : '▶  Next'}</Text>
             </TouchableOpacity>
           )}
-          {phase === 'guessing' && guessKey && (
+          {phase === 'guessing' && guessKey && wrongGuesses < 3 && (
             <TouchableOpacity
               style={[styles.primaryButton, { width: 140, marginVertical: 0, backgroundColor: '#2a1e00' }]}
               onPress={handleHearAgain}
@@ -339,7 +343,20 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
           )}
         </View>
 
-        <View style={{ width: 36 }} />
+        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', width: 60, justifyContent: 'flex-end', marginRight: Math.round(W * 0.15) }}>
+          {[0, 1, 2].map(i => {
+            const isWrong = i < wrongGuesses;
+            const isCorrect = i === wrongGuesses && semitoneOff === 0;
+            return (
+              <View key={i} style={{
+                width: 10, height: 10, borderRadius: 5,
+                backgroundColor: isCorrect ? '#00e060' : isWrong ? '#ff3344' : 'transparent',
+                borderWidth: 1.5,
+                borderColor: isCorrect ? '#00e06088' : '#ff334488',
+              }} />
+            );
+          })}
+        </View>
       </View>
 
       {/* Cabinet + Piano */}
@@ -360,34 +377,36 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
       </View>
 
       {/* Display panel */}
-      <View style={{ flexDirection: 'row', marginHorizontal: CAB_MARGIN, paddingTop: 10, gap: 10 }}>
+      <View style={{ flexDirection: 'row', marginHorizontal: CAB_MARGIN, paddingTop: 20, gap: 16 }}>
         <View style={{
-          flex: 1, backgroundColor: '#0b1714', borderRadius: 10,
+          flex: 0.5, backgroundColor: '#0b1714', borderRadius: 8,
           borderWidth: 1, borderColor: '#2bc0a030',
-          paddingVertical: 8, alignItems: 'center',
+          paddingVertical: 4, alignItems: 'center',
+          marginLeft:70,
         }}>
-          <Text style={{ color: '#2bc0a055', fontSize: 9, letterSpacing: 2, fontWeight: '600', marginBottom: 2 }}>ROOT</Text>
-          <Text style={{ color: '#2bc0a0', fontSize: 22, fontWeight: '700' }}>{rootNoteName ?? '—'}</Text>
+          <Text style={{ color: '#2bc0a055', fontSize: 8, letterSpacing: 2, fontWeight: '600' }}>ROOT</Text>
+          <Text style={{ color: '#2bc0a0', fontSize: 16, fontWeight: '700' }}>{rootNoteName ?? '—'}</Text>
         </View>
 
         <View style={{
-          flex: 1, backgroundColor: '#0d1018', borderRadius: 10,
+          flex: 0.5, backgroundColor: '#0d1018', borderRadius: 8,
           borderWidth: 1, borderColor: guessKey ? guessAlpha : '#ffffff15',
-          paddingVertical: 8, alignItems: 'center',
+          paddingVertical: 4, alignItems: 'center',
         }}>
-          <Text style={{ color: '#ffffff44', fontSize: 9, letterSpacing: 2, fontWeight: '600', marginBottom: 2 }}>YOUR NOTE</Text>
-          <Text style={{ color: guessKey ? guessAccent : '#ffffff30', fontSize: 22, fontWeight: '700' }}>
+          <Text style={{ color: '#ffffff44', fontSize: 8, letterSpacing: 2, fontWeight: '600' }}>YOUR NOTE</Text>
+          <Text style={{ color: guessKey ? guessAccent : '#ffffff30', fontSize: 16, fontWeight: '700' }}>
             {guessNoteName}
           </Text>
         </View>
 
         <View style={{
-          flex: 2, backgroundColor: '#120e06', borderRadius: 10,
+          flex: 0.5, backgroundColor: '#120e06', borderRadius: 8,
           borderWidth: 1, borderColor: '#9e751435',
-          paddingVertical: 8, paddingHorizontal: 8, alignItems: 'center',
+          paddingVertical: 4, paddingHorizontal: 25, alignItems: 'center',
+          marginRight: 90, marginLeft:40,
         }}>
-          <Text style={{ color: '#9e751455', fontSize: 9, letterSpacing: 2, fontWeight: '600', marginBottom: 2 }}>INTERVAL</Text>
-          <Text style={{ color: revealed ? '#c4991e' : '#9e751430', fontSize: 16, fontWeight: '700' }}>
+          <Text style={{ color: '#9e751455', fontSize: 8, letterSpacing: 2, fontWeight: '600' }}>SCORE</Text>
+          <Text style={{ color: revealed ? '#c4991e' : '#9e751430', fontSize: 13, fontWeight: '700' }}>
             {revealed && correctInterval !== null ? intervalName(correctInterval) : '— — —'}
           </Text>
         </View>
