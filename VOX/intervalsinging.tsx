@@ -18,7 +18,7 @@ import Piano, { pitchToKey } from './UI/Piano';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
-const IS_BOX_H      = Math.round(SCREEN_H * 0.40);
+const IS_BOX_H      = Math.round(SCREEN_H * 0.53);
 const GRID_MARGIN   = 10;
 const ROLLING_N     = 8;
 const ZOOM_ALPHA    = 0.28;
@@ -30,7 +30,14 @@ const BAR_LEFT      = 24;
 const BAR_RIGHT     = pitchBoxWidth - 20;
 const BAR_WIDTH     = BAR_RIGHT - BAR_LEFT;
 const SCORE_X1      = BAR_RIGHT;
-const PIANO_W       = Math.round(pitchBoxWidth * 0.68);
+
+// Cabinet (1407 × 329 px asset)
+const CAB_MARGIN = 10;
+const CAB_W      = pitchBoxWidth;
+const CAB_H      = Math.round(CAB_W * (329 / 1407));
+const CAB_KEY_L  = Math.round(CAB_W * (109 / 1407));
+const CAB_KEY_T  = Math.round(CAB_H * (100 / 329));
+const CAB_KEYS_W = Math.round(CAB_W * (1182 / 1407));
 
 const BANDS = [
   { min: 99, color: '#b8f0ff' },
@@ -47,14 +54,6 @@ const INTERVAL_NAMES: Record<number, string> = {
   9: 'Maj 6th', 10: 'Min 7th', 11: 'Maj 7th', 12: 'Octave',
 };
 const ALL_SEMITONES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-
-// Cabinet image proportions (1407 × 329)
-const CAB_MARGIN = 10;
-const CAB_W      = pitchBoxWidth;
-const CAB_H      = Math.round(CAB_W * (329 / 1407));
-const CAB_KEY_L  = Math.round(CAB_W * (109 / 1407));
-const CAB_KEY_T  = Math.round(CAB_H * (100 / 329));
-const CAB_KEYS_W = Math.round(CAB_W * (1182 / 1407));
 
 function bandIndexFromColor(color: string): number {
   const idx = BANDS.findIndex(b => b.color === color);
@@ -118,15 +117,19 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
   const [started, setStarted]           = useState(false);
   const [hasTarget, setHasTarget]       = useState(false);
   const [barVisible, setBarVisible]     = useState(false);
+  const [rootBarVisible, setRootBarVisible] = useState(false);
   const [targetPitch, setTargetPitch]   = useState<Pitch | null>(null);
   const [rootPitch, setRootPitch]       = useState<Pitch | null>(null);
   const [intervalSemitones, setIntervalSemitones] = useState<number | null>(null);
+  const [intervalDirection, setIntervalDirection] = useState<'up' | 'down' | null>(null);
   const [displayLo, setDisplayLo]       = useState(65.41);
   const [displayHi, setDisplayHi]       = useState(1046.5);
 
   const targetAnimY        = useRef(new Animated.Value(-100)).current;
+  const rootAnimY          = useRef(new Animated.Value(-100)).current;
   const scoreX             = useRef(new Animated.Value(SCORE_X0)).current;
   const targetPitchRef     = useRef<Pitch | null>(null);
+  const rootFreqRef        = useRef(0);
   const hasTargetRef       = useRef(false);
   const displayLoRef       = useRef(65.41);
   const displayHiRef       = useRef(1046.5);
@@ -150,8 +153,8 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
     tx: Animated.Value; ty: Animated.Value; op: Animated.Value;
   }>>([]);
   const [boxFull, setBoxFull]         = useState(false);
-  const [finalScore, setFinalScore]           = useState(0);
-  const [displayedScore, setDisplayedScore]   = useState(0);
+  const [finalScore, setFinalScore]   = useState(0);
+  const [displayedScore, setDisplayedScore] = useState(0);
   const particles = useRef(
     Array.from({ length: NUM_PARTICLES }, () => ({
       tx: new Animated.Value(0),
@@ -189,12 +192,18 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
     const subLo = animLo.addListener(({ value }) => {
       displayLoRef.current = value;
       setDisplayLo(value);
+      if (rootFreqRef.current > 0) {
+        rootAnimY.setValue(freqToY(rootFreqRef.current, value, displayHiRef.current) - 2);
+      }
     });
     const subHi = animHi.addListener(({ value }) => {
       displayHiRef.current = value;
       setDisplayHi(value);
       if (targetPitchRef.current) {
         targetAnimY.setValue(freqToY(targetPitchRef.current.frequency, displayLoRef.current, value) - 2);
+      }
+      if (rootFreqRef.current > 0) {
+        rootAnimY.setValue(freqToY(rootFreqRef.current, displayLoRef.current, value) - 2);
       }
     });
     const subScoreX = scoreX.addListener(({ value }) => { squareLeftRef.current = value; });
@@ -222,13 +231,19 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
           if (!isZoomSettledRef.current) {
             recentFreqsRef.current = [value.frequency, ...recentFreqsRef.current].slice(0, ROLLING_N);
             const avg = recentFreqsRef.current.reduce((a, b) => a + b, 0) / recentFreqsRef.current.length;
-            const tf       = targetPitchRef.current.frequency;
-            const hardLo   = tf * Math.pow(2, -2 / 12);
-            const hardHi   = tf * Math.pow(2,  2 / 12);
+            const tf        = targetPitchRef.current.frequency;
+            const hardLo    = tf * Math.pow(2, -2 / 12);
+            const hardHi    = tf * Math.pow(2,  2 / 12);
             const naturalLo = Math.min(avg, tf) * Math.pow(2, -0.5 / 12);
             const naturalHi = Math.max(avg, tf) * Math.pow(2,  0.5 / 12);
-            const desiredLo = Math.max(hardLo, Math.min(naturalLo, loRef.current));
-            const desiredHi = Math.min(hardHi, Math.max(naturalHi, hiRef.current));
+            let desiredLo = Math.max(hardLo, Math.min(naturalLo, loRef.current));
+            let desiredHi = Math.min(hardHi, Math.max(naturalHi, hiRef.current));
+            const rootF = rootFreqRef.current;
+            if (rootF > 0) {
+              const rootMargin = Math.pow(2, 2 / 12);
+              desiredLo = Math.min(desiredLo, rootF / rootMargin);
+              desiredHi = Math.max(desiredHi, rootF * rootMargin);
+            }
             const newLo = displayLoRef.current + (desiredLo - displayLoRef.current) * ZOOM_ALPHA;
             const newHi = displayHiRef.current + (desiredHi - displayHiRef.current) * ZOOM_ALPHA;
             if (Math.abs(newLo - displayLoRef.current) / displayLoRef.current < 0.001) {
@@ -360,16 +375,18 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
     }
     if (!target) return;
 
+    // Reset
     hasTargetRef.current       = false;
     isZoomSettledRef.current   = false;
     horizontalStartRef.current = false;
     lastPerfectFireRef.current = 0;
     scoringDotsRef.current     = [];
-    setRootPitch(root);
-    setIntervalSemitones(semitones);
+    rootFreqRef.current        = 0;
     setTargetPitch(null);
     setHasTarget(false);
     setBarVisible(false);
+    setRootBarVisible(false);
+    setIntervalDirection(null);
     setAnimTail([]);
     setBoxFull(false);
     setFinalScore(0);
@@ -383,30 +400,39 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
     setPitchLine([]);
     scoreX.stopAnimation();
     scoreX.setValue(SCORE_X0);
+    targetPitchRef.current = null;
 
-    // Play root, then slide target bar in and play target
-    Pitches.playSingle(root);
-    const rootSub = TrackPlayer.addEventListener(Event.PlaybackQueueEnded, () => {
-      rootSub.remove();
-      Animated.parallel([
-        Animated.timing(animLo, { toValue: loRef.current, duration: 500, useNativeDriver: false }),
-        Animated.timing(animHi, { toValue: hiRef.current, duration: 500, useNativeDriver: false }),
-      ]).start(() => {
+    // Reveal root + interval info immediately
+    setRootPitch(root);
+    setIntervalSemitones(semitones);
+    setIntervalDirection(target.id > root.id ? 'up' : 'down');
+
+    // Show root reference line and play root
+    Animated.parallel([
+      Animated.timing(animLo, { toValue: loRef.current, duration: 300, useNativeDriver: false }),
+      Animated.timing(animHi, { toValue: hiRef.current, duration: 300, useNativeDriver: false }),
+    ]).start(() => {
+      rootFreqRef.current = root.frequency;
+      rootAnimY.setValue(freqToY(root.frequency, loRef.current, hiRef.current) - 2);
+      setRootBarVisible(true);
+
+      Pitches.playSingle(root);
+      const rootSub = TrackPlayer.addEventListener(Event.PlaybackQueueEnded, () => {
+        rootSub.remove();
+
+        // Enter listening phase — target does NOT play
         const finalY = freqToY(target!.frequency, loRef.current, hiRef.current) - 2;
         const startY = finalY < IS_BOX_H / 2 ? IS_BOX_H + 10 : -10;
         targetAnimY.stopAnimation();
         targetAnimY.setValue(startY);
         setStarted(true);
         setBarVisible(true);
+
         Animated.timing(targetAnimY, { toValue: finalY, duration: 600, useNativeDriver: false }).start(() => {
           targetPitchRef.current = target!;
           setTargetPitch(target!);
-          Pitches.playSingle(target!);
-          const targetSub = TrackPlayer.addEventListener(Event.PlaybackQueueEnded, () => {
-            setHasTarget(true);
-            hasTargetRef.current = true;
-            targetSub.remove();
-          });
+          setHasTarget(true);
+          hasTargetRef.current = true;
         });
       });
     });
@@ -421,13 +447,14 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
 
   const pianoOctaves = useMemo(() => {
     if (!rootPitch) return [3, 4];
-    const rOct = octaveOf(rootPitch);
-    const tOct = targetPitch ? octaveOf(targetPitch) : rOct;
-    const lo   = Math.min(rOct, tOct);
-    const hi   = Math.max(lo + 1, Math.max(rOct, tOct));
-    return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
+    const rOct  = octaveOf(rootPitch);
+    const tOct  = targetPitch ? octaveOf(targetPitch) : rOct;
+    const minOct = Math.min(rOct, tOct);
+    const maxOct = Math.max(minOct + 1, Math.max(rOct, tOct));
+    return Array.from({ length: maxOct - minOct + 1 }, (_, i) => minOct + i);
   }, [rootPitch, targetPitch]);
 
+  // Root key shows while root is playing; target key added when listening phase starts
   const pianoPressedKeys = useMemo(() => {
     const keys: string[] = [];
     if (rootPitch)  keys.push(pitchToKey(rootPitch));
@@ -437,21 +464,25 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
 
   return (
     <SafeAreaView style={styles.pitchmatchContainer}>
-      <TouchableOpacity style={styles.backButton} onPress={onBack}>
-        <Image source={require('../static/back-arrow.png')} style={{ width: 20, height: 20, tintColor: '#ffffff' }} resizeMode="contain" />
-      </TouchableOpacity>
 
-      <View style={{ flexDirection: 'row', marginBottom: 0 }}>
-        <Text style={[styles.titleText, { marginBottom: 2 }]}>Interval Singing</Text>
+      {/* Compact header row */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingTop: 12, paddingBottom: 6 }}>
         <TouchableOpacity
-          style={[styles.primaryButton, { width: '35%', height: '80%', margin: 2, marginLeft: 10, paddingVertical: 5 }]}
+          onPress={onBack}
+          style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: '#04756cff', justifyContent: 'center', alignItems: 'center', elevation: 8 }}
+        >
+          <Image source={require('../static/back-arrow.png')} style={{ width: 20, height: 20, tintColor: '#ffffff' }} resizeMode="contain" />
+        </TouchableOpacity>
+        <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700', flex: 1, marginLeft: 10 }}>Interval Singing</Text>
+        <TouchableOpacity
+          style={[styles.primaryButton, { width: 100, marginVertical: 0, paddingVertical: 8 }]}
           onPress={newTarget}
         >
           <Text style={styles.backButtonText}>{started ? 'Next' : 'Start'}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Pitch box */}
+      {/* Pitch box — 2/3 of screen height */}
       <View style={{
         width: pitchBoxWidth,
         height: IS_BOX_H,
@@ -463,6 +494,20 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
       }}>
         {pitchGrid}
 
+        {/* Root reference line (blue) */}
+        {rootBarVisible && (
+          <Animated.View style={{
+            position: 'absolute',
+            top: rootAnimY,
+            left: BAR_LEFT,
+            width: BAR_WIDTH,
+            height: 3,
+            backgroundColor: '#5a9fd4',
+            opacity: 0.65,
+          }} />
+        )}
+
+        {/* Target line (green) */}
         {barVisible && (
           <Animated.View style={[styles.targetLine, { top: targetAnimY, left: BAR_LEFT, width: BAR_WIDTH }]} />
         )}
@@ -472,20 +517,47 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
             height: 5, width: coverWidth, backgroundColor: 'black',
           }} />
         )}
+
+        {/* Root label */}
+        {rootBarVisible && rootPitch && (
+          <Text style={{
+            position: 'absolute',
+            top: Math.max(2, freqToY(rootPitch.frequency, displayLo, displayHi) - 18),
+            left: BAR_LEFT,
+            width: BAR_WIDTH,
+            textAlign: 'center',
+            color: '#5a9fd4',
+            fontSize: 10,
+            fontWeight: '600',
+            opacity: 0.85,
+          }}>
+            {Pitches.displayName(rootPitch)}
+          </Text>
+        )}
+
+        {/* Target label */}
         {hasTarget && targetPitch && (
           <Text style={[styles.targetText, {
             top: Math.max(2, freqToY(targetPitch.frequency, displayLo, displayHi) - 22),
-            left: BAR_LEFT, width: BAR_WIDTH, textAlign: 'center',
+            left: BAR_LEFT,
+            width: BAR_WIDTH,
+            textAlign: 'center',
           }]}>
             {Pitches.displayName(targetPitch)}
           </Text>
         )}
+
+        {/* Pitch square */}
         {started && hz > 0 && (
           <Animated.View style={[styles.pitchSquare, { top: squareY, left: scoreX, backgroundColor: currentColor }]} />
         )}
+
+        {/* Dot trail */}
         {started && pitchLine.map(item => (
           <View key={item.born} style={[styles.pitchTail, { top: item.top, left: item.left, backgroundColor: item.color }]} />
         ))}
+
+        {/* Animated tail (fade out on score) */}
         {animTail.map(item => (
           <Animated.View
             key={`at${item.born}`}
@@ -498,10 +570,14 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
             }}
           />
         ))}
+
+        {/* Perfect-hit glow */}
         <Animated.View
           pointerEvents="none"
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#b8f0ff', opacity: glowAnim }}
         />
+
+        {/* Particles */}
         {particles.map((p, i) => (
           <Animated.View
             key={`p${i}`}
@@ -518,77 +594,68 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
       </View>
 
       {/* Mini keyboard + cabinet */}
-      <View style={{ marginTop: 8, marginLeft: CAB_MARGIN }}>
+      <View style={{ marginTop: 6, marginLeft: CAB_MARGIN }}>
         <View style={{ position: 'relative', width: CAB_W, height: CAB_H }}>
           <Image
             source={require('../static/piano/cabinet.png')}
             style={{ width: CAB_W, height: CAB_H }}
             resizeMode="stretch"
           />
-          <View style={{ position: 'absolute', left: CAB_KEY_L, top: CAB_KEY_T, width: CAB_KEYS_W, overflow: 'hidden', height: CAB_H - CAB_KEY_T }}>
+          <View style={{ position: 'absolute', left: CAB_KEY_L, top: CAB_KEY_T, width: CAB_KEYS_W, height: CAB_H - CAB_KEY_T, overflow: 'hidden' }}>
             <Piano pressedKeys={pianoPressedKeys} octaves={pianoOctaves} />
           </View>
         </View>
       </View>
 
       {/* Info boxes */}
-      <View style={{ flexDirection: 'row', marginHorizontal: CAB_MARGIN, paddingTop: 10, gap: 10 }}>
-        <View style={{
-          flex: 1, backgroundColor: '#0b1714', borderRadius: 8,
-          borderWidth: 1, borderColor: '#2bc0a030',
-          paddingVertical: 6, alignItems: 'center',
-        }}>
+      <View style={{ flexDirection: 'row', marginHorizontal: CAB_MARGIN, paddingTop: 8, gap: 10 }}>
+        <View style={{ flex: 1, backgroundColor: '#0b1714', borderRadius: 8, borderWidth: 1, borderColor: '#2bc0a030', paddingVertical: 5, alignItems: 'center' }}>
           <Text style={{ color: '#2bc0a055', fontSize: 8, letterSpacing: 2, fontWeight: '600' }}>ROOT</Text>
-          <Text style={{ color: '#2bc0a0', fontSize: 15, fontWeight: '700' }}>
+          <Text style={{ color: '#2bc0a0', fontSize: 14, fontWeight: '700' }}>
             {rootPitch ? Pitches.displayName(rootPitch) : '—'}
           </Text>
         </View>
 
-        <View style={{
-          flex: 1, backgroundColor: '#0d1018', borderRadius: 8,
-          borderWidth: 1, borderColor: '#00d46030',
-          paddingVertical: 6, alignItems: 'center',
-        }}>
-          <Text style={{ color: '#00d46055', fontSize: 8, letterSpacing: 2, fontWeight: '600' }}>TARGET</Text>
-          <Text style={{ color: '#00d460', fontSize: 15, fontWeight: '700' }}>
-            {targetPitch ? Pitches.displayName(targetPitch) : '—'}
+        <View style={{ flex: 1, backgroundColor: '#120e06', borderRadius: 8, borderWidth: 1, borderColor: '#9e751435', paddingVertical: 5, alignItems: 'center' }}>
+          <Text style={{ color: '#9e751455', fontSize: 8, letterSpacing: 2, fontWeight: '600' }}>INTERVAL</Text>
+          <Text style={{ color: '#c4991e', fontSize: 11, fontWeight: '700' }}>
+            {intervalSemitones !== null
+              ? `${intervalDirection === 'up' ? '↑' : intervalDirection === 'down' ? '↓' : ''} ${INTERVAL_NAMES[intervalSemitones]}`
+              : '—'}
           </Text>
         </View>
 
-        <View style={{
-          flex: 1, backgroundColor: '#120e06', borderRadius: 8,
-          borderWidth: 1, borderColor: '#9e751435',
-          paddingVertical: 6, alignItems: 'center',
-        }}>
-          <Text style={{ color: '#9e751455', fontSize: 8, letterSpacing: 2, fontWeight: '600' }}>INTERVAL</Text>
-          <Text style={{ color: '#c4991e', fontSize: 12, fontWeight: '700' }}>
-            {intervalSemitones !== null ? INTERVAL_NAMES[intervalSemitones] : '—'}
+        <View style={{ flex: 1, backgroundColor: '#0d1018', borderRadius: 8, borderWidth: 1, borderColor: '#00d46030', paddingVertical: 5, alignItems: 'center' }}>
+          <Text style={{ color: '#00d46055', fontSize: 8, letterSpacing: 2, fontWeight: '600' }}>TARGET</Text>
+          <Text style={{ color: '#00d460', fontSize: 14, fontWeight: '700' }}>
+            {targetPitch ? Pitches.displayName(targetPitch) : '—'}
           </Text>
         </View>
       </View>
 
-      {/* Score */}
+      {/* Score / live accuracy */}
       {boxFull ? (
-        <View style={{ alignItems: 'center', paddingTop: 10 }}>
+        <View style={{ alignItems: 'center', paddingTop: 8 }}>
           <Animated.Text style={{
-            fontSize: 64, fontWeight: '800', color: '#ffffff',
+            fontSize: 56, fontWeight: '800', color: '#ffffff',
             transform: [{ scale: scoreLandAnim }], letterSpacing: -2,
           }}>
             {displayedScore}
           </Animated.Text>
-          <Text style={{ fontSize: 13, fontWeight: '700', color: scoreColor(finalScore), letterSpacing: 5, opacity: 0.85 }}>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: scoreColor(finalScore), letterSpacing: 5, opacity: 0.85 }}>
             {scoreLabel(finalScore)}
           </Text>
         </View>
       ) : (
-        <View style={{ alignItems: 'center', paddingTop: 12 }}>
+        <View style={{ alignItems: 'center', paddingTop: 8 }}>
           {liveAccuracy > 0 && (
-            <Text style={{ fontSize: 32, fontWeight: '700', color: bandColor(liveAccuracy), letterSpacing: -1 }}>
+            <Text style={{ fontSize: 28, fontWeight: '700', color: bandColor(liveAccuracy), letterSpacing: -1 }}>
               {liveAccuracy}%
             </Text>
           )}
         </View>
       )}
+
     </SafeAreaView>
   );
 };
