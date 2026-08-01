@@ -24,6 +24,7 @@ import styles, { pitchBoxWidth } from './VOX/UI/styles';
 import RangeGate from './VOX/UI/rangeGate';
 import PitchMatchScreen from './VOX//pitchmatch';
 import IntervalScreen from './VOX//intervals';
+import IntervalSingingScreen from './VOX/intervalsinging';
 import SequenceScreen from './VOX//sequences';
 import SetRangeScreen from './VOX/setrange';
 import RangeSetupScreen from './VOX/rangesetup';
@@ -88,6 +89,10 @@ const App = () => {
     setCurrentScreen('sequence');
   };
 
+  const handleIntervalSingingPress = () => {
+    setCurrentScreen('intervalSinging');
+  };
+
   const handleGoBack = () => {
     user.RetreiveProfile().then(() => setRangeSet(user.range_set));
     setCurrentScreen('main');
@@ -135,6 +140,8 @@ const App = () => {
       return <View style={{ flex: 1 }}><IntervalScreen onBack={handleGoBack} />{!rangeSet && <RangeGate onSetRange={handleSetRangePress} onBack={handleGoBack} />}</View>;
     case 'sequence':
       return <View style={{ flex: 1 }}><SequenceScreen onBack={handleGoBack} />{!rangeSet && <RangeGate onSetRange={handleSetRangePress} onBack={handleGoBack} />}</View>;
+    case 'intervalSinging':
+      return <View style={{ flex: 1 }}><IntervalSingingScreen onBack={handleGoBack} />{!rangeSet && <RangeGate onSetRange={handleSetRangePress} onBack={handleGoBack} />}</View>;
   }
 
   return (
@@ -177,6 +184,9 @@ const App = () => {
           </TouchableOpacity>
           <TouchableOpacity style={styles.button} onPress={handleIntervalsPress}>
             <Text style={styles.buttonText}>Interval Training</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={handleIntervalSingingPress}>
+            <Text style={styles.buttonText}>Interval Singing</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.button} onPress={handleSequencePress}>
             <Text style={styles.buttonText}>Sequences</Text>
