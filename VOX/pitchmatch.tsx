@@ -29,7 +29,7 @@ const NUM_PARTICLES = 10;
 
 const BOX_W         = 48;
 const BOX_H         = 40;
-const BOX_GAP       = 3;
+const BOX_GAP       = 5;
 const BOX_LEFT_START = Math.round(((pitchBoxWidth) - (5 * BOX_W +  BOX_GAP)) / 2);
 const BOX_Y         = pitchBoxHeight - 42;
 
@@ -51,10 +51,10 @@ const SCORE_X1 = BAR_RIGHT;
 
 const BANDS = [
   { min: 99, color: '#b8f0ff' }, // perfect — diamond
-  { min: 96, color: '#00e676' }, // excellent — bright green
-  { min: 90, color: '#7a8c5a' }, // good — pea soup
-  { min: 85, color: '#5f7878' }, // average — steel blue-green
-  { min: 0,  color: '#607080' }, // off — slate grey
+  { min: 96, color: '#0f854c' }, // excellent — bright green
+  { min: 90, color: '#768808' }, // good — pea soup
+  { min: 85, color: '#7f5011' }, // average — steel blue-green
+  { min: 0,  color: '#571707' }, // off — slate grey
 ];
 const BAND_WEIGHTS = [5, 4, 3, 2, 0];
 
@@ -558,10 +558,26 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
 
         <Image
           source={PIPEBOARD}
-          pointerEvents="none"
           style={{ position: 'absolute', left: 10, top: BOX_Y +25, width: pitchBoxWidth, height: BOX_H }}
           resizeMode="stretch"
         />
+
+        {BANDS.map((_, i) => (
+          <View
+            key={`cast${i}`}
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: BOX_LEFT_START + i * (BOX_W + BOX_GAP) -9,
+              top: BOX_Y+21,
+              width: 30,
+              height: BOX_H - 23,
+              backgroundColor: 'rgba(0,0,0,0.38)',
+              borderRadius: 8,
+              transform: [{ rotate: '18deg' }],
+            }}
+          />
+        ))}
 
         {BANDS.map((_, i) => (
           <View
@@ -580,7 +596,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
           >
             <Image source={PIPE_IMAGES[i]} style={{ width: BOX_H, left:2, height: BOX_W, transform: [{ rotate: '-90deg' }] }} resizeMode="stretch" />
             {boxFull && tierCounts[i] > 0 && (
-              <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', textShadowColor: '#000', textShadowRadius: 3, position: 'absolute' }}>
+              <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', textShadowColor: '#000', textShadowRadius: 3, position: 'absolute', paddingTop: 4, paddingLeft: 3 }}>
                 {tierCounts[i]}
               </Text>
             )}
