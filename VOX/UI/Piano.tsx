@@ -152,4 +152,4 @@ const Piano: React.FC<PianoProps> = ({ pressedKeys = [], octaves }) => {
   );
 };
 
-export default Piano;
+export default React.memo(Piano);

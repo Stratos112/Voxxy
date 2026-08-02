@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
-  Animated, Dimensions, Image, SafeAreaView, Text, View, TouchableOpacity,
+  Animated, Dimensions, Image, StatusBar, Text, View, TouchableOpacity,
 } from 'react-native';
 import { PitchDetector } from 'react-native-pitch-detector';
 import TrackPlayer, { Event } from 'react-native-track-player';
@@ -18,11 +18,13 @@ import Piano, { pitchToKey } from './UI/Piano';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
-const IS_BOX_H      = Math.round(SCREEN_H * 0.53);
+const IS_BOX_H      = Math.round(SCREEN_H * 0.54);
 const GRID_MARGIN   = 10;
 const ROLLING_N     = 8;
 const ZOOM_ALPHA    = 0.28;
-const DURATION_MS   = 5000;
+const CUMULATIVE_THRESHOLD = 150;
+const MAX_DURATION_MS = 10000;
+const BAND_WEIGHTS = [5, 4, 3, 2, 0];
 const NUM_PARTICLES = 10;
 const MAX_TAIL      = 200;
 const SCORE_X0      = 10;
@@ -46,8 +48,6 @@ const BANDS = [
   { min: 85, color: '#7f5011' },
   { min: 0,  color: '#571707' },
 ];
-const BAND_WEIGHTS = [5, 4, 3, 2, 0];
-
 const INTERVAL_NAMES: Record<number, string> = {
   1: 'Min 2nd', 2: 'Maj 2nd',  3: 'Min 3rd',  4: 'Maj 3rd',
   5: 'Perf 4th', 6: 'Tritone', 7: 'Perf 5th', 8: 'Min 6th',
@@ -55,22 +55,18 @@ const INTERVAL_NAMES: Record<number, string> = {
 };
 const ALL_SEMITONES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
-function bandIndexFromColor(color: string): number {
-  const idx = BANDS.findIndex(b => b.color === color);
-  return idx >= 0 ? idx : BANDS.length - 1;
+function timeLabel(ms: number): string {
+  if (ms < 3000) return 'INSTANT';
+  if (ms < 5000) return 'QUICK';
+  if (ms < 7000) return 'SOLID';
+  if (ms < 10000) return 'SLOW';
+  return 'KEEP TRYING';
 }
-function scoreLabel(s: number): string {
-  if (s >= 90) return 'STELLAR';
-  if (s >= 75) return 'EXCELLENT';
-  if (s >= 55) return 'SOLID';
-  if (s >= 40) return 'KEEP AT IT';
-  return 'NEEDS WORK';
-}
-function scoreColor(s: number): string {
-  if (s >= 90) return '#b8f0ff';
-  if (s >= 75) return '#00e676';
-  if (s >= 55) return '#7a8c5a';
-  if (s >= 40) return '#5f7878';
+function timeColor(ms: number): string {
+  if (ms < 3000) return '#b8f0ff';
+  if (ms < 5000) return '#00e676';
+  if (ms < 7000) return '#7a8c5a';
+  if (ms < 10000) return '#5f7878';
   return '#607080';
 }
 function bandColor(score: number): string {
@@ -143,18 +139,21 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
   const animLo             = useRef(new Animated.Value(65.41)).current;
   const animHi             = useRef(new Animated.Value(1046.5)).current;
   const glowAnim           = useRef(new Animated.Value(0)).current;
-  const scoreCountAnim     = useRef(new Animated.Value(0)).current;
   const scoreLandAnim      = useRef(new Animated.Value(1)).current;
   const lastPerfectFireRef = useRef(0);
+  const timerIntervalRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerStartRef      = useRef<number>(0);
+  const thresholdMetRef    = useRef(false);
+  const cumulativeScoreRef = useRef(0);
   const scoringDotsRef     = useRef<Array<{ top: number; left: number; color: string; born: number }>>([]);
-  const onScoringEndRef    = useRef<() => void>(() => {});
+  const onScoringEndRef    = useRef<(elapsed?: number) => void>(() => {});
   const [animTail, setAnimTail] = useState<Array<{
     top: number; left: number; color: string; born: number;
     tx: Animated.Value; ty: Animated.Value; op: Animated.Value;
   }>>([]);
   const [boxFull, setBoxFull]         = useState(false);
   const [finalScore, setFinalScore]   = useState(0);
-  const [displayedScore, setDisplayedScore] = useState(0);
+  const [timerMs, setTimerMs]         = useState(0);
   const particles = useRef(
     Array.from({ length: NUM_PARTICLES }, () => ({
       tx: new Animated.Value(0),
@@ -207,12 +206,10 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
       }
     });
     const subScoreX = scoreX.addListener(({ value }) => { squareLeftRef.current = value; });
-    const subCount  = scoreCountAnim.addListener(({ value }) => { setDisplayedScore(Math.floor(value)); });
     return () => {
       animLo.removeListener(subLo);
       animHi.removeListener(subHi);
       scoreX.removeListener(subScoreX);
-      scoreCountAnim.removeListener(subCount);
     };
   }, []);
 
@@ -275,8 +272,26 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
 
           if (isZoomSettledRef.current && !horizontalStartRef.current) {
             horizontalStartRef.current = true;
-            Animated.timing(scoreX, { toValue: SCORE_X1, duration: DURATION_MS, useNativeDriver: false })
+            timerStartRef.current = Date.now();
+            timerIntervalRef.current = setInterval(() => {
+              setTimerMs(Date.now() - timerStartRef.current);
+            }, 100);
+            Animated.timing(scoreX, { toValue: SCORE_X1, duration: MAX_DURATION_MS, useNativeDriver: false })
               .start(() => { onScoringEndRef.current(); });
+          }
+
+          if (isZoomSettledRef.current && !thresholdMetRef.current) {
+            const bandIdx = BANDS.findIndex(b => score >= b.min);
+            cumulativeScoreRef.current += bandIdx >= 0 ? BAND_WEIGHTS[bandIdx] : 0;
+            if (cumulativeScoreRef.current >= CUMULATIVE_THRESHOLD) {
+              thresholdMetRef.current = true;
+              scoreX.stopAnimation();
+              timerIntervalRef.current && clearInterval(timerIntervalRef.current);
+              timerIntervalRef.current = null;
+              const elapsed = Date.now() - timerStartRef.current;
+              setTimerMs(elapsed);
+              onScoringEndRef.current(elapsed);
+            }
           }
         }
 
@@ -326,24 +341,17 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
       ));
   }, [displayLo, displayHi]);
 
-  onScoringEndRef.current = () => {
+  onScoringEndRef.current = (elapsed?: number) => {
     const dots = scoringDotsRef.current;
-    if (dots.length === 0) return;
-    const counts = [0, 0, 0, 0, 0];
-    dots.forEach(d => { counts[bandIndexFromColor(d.color)]++; });
-    const totalDots   = counts.reduce((a, b) => a + b, 0);
-    const totalPoints = counts.reduce((sum, cnt, i) => sum + cnt * BAND_WEIGHTS[i], 0);
-    const weighted    = totalDots > 0 ? Math.round((totalPoints / (totalDots * 5)) * 100) : 0;
-    setFinalScore(weighted);
+    if (dots.length === 0 && elapsed === undefined) return;
+    const ms = elapsed ?? (Date.now() - timerStartRef.current);
+    setFinalScore(ms);
     setBoxFull(true);
-    scoreCountAnim.setValue(0);
     scoreLandAnim.setValue(1);
-    Animated.timing(scoreCountAnim, { toValue: weighted, duration: 1400, useNativeDriver: false }).start(() => {
-      Animated.sequence([
-        Animated.timing(scoreLandAnim, { toValue: 1.25, duration: 140, useNativeDriver: true }),
-        Animated.timing(scoreLandAnim, { toValue: 1.0,  duration: 220, useNativeDriver: true }),
-      ]).start();
-    });
+    Animated.sequence([
+      Animated.timing(scoreLandAnim, { toValue: 1.25, duration: 140, useNativeDriver: true }),
+      Animated.timing(scoreLandAnim, { toValue: 1.0,  duration: 220, useNativeDriver: true }),
+    ]).start();
     const items = dots.map(dot => ({
       ...dot,
       tx: new Animated.Value(0),
@@ -380,8 +388,12 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
     isZoomSettledRef.current   = false;
     horizontalStartRef.current = false;
     lastPerfectFireRef.current = 0;
+    thresholdMetRef.current    = false;
+    cumulativeScoreRef.current = 0;
     scoringDotsRef.current     = [];
     rootFreqRef.current        = 0;
+    timerIntervalRef.current && clearInterval(timerIntervalRef.current);
+    timerIntervalRef.current   = null;
     setTargetPitch(null);
     setHasTarget(false);
     setBarVisible(false);
@@ -390,11 +402,10 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
     setAnimTail([]);
     setBoxFull(false);
     setFinalScore(0);
-    setDisplayedScore(0);
+    setTimerMs(0);
     setLiveAccuracy(0);
     liveSumRef.current   = 0;
     liveCountRef.current = 0;
-    scoreCountAnim.setValue(0);
     scoreLandAnim.setValue(1);
     recentFreqsRef.current = [];
     setPitchLine([]);
@@ -462,11 +473,13 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
     return keys;
   }, [rootPitch, targetPitch]);
 
+  const safeTop = (StatusBar.currentHeight ?? 24) + 10;
+
   return (
-    <SafeAreaView style={styles.pitchmatchContainer}>
+    <View style={styles.pitchmatchContainer}>
 
       {/* Compact header row */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingTop: 12, paddingBottom: 6 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: safeTop, paddingBottom: 12 }}>
         <TouchableOpacity
           onPress={onBack}
           style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: '#04756cff', justifyContent: 'center', alignItems: 'center', elevation: 8 }}
@@ -608,7 +621,7 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
       </View>
 
       {/* Info boxes */}
-      <View style={{ flexDirection: 'row', marginHorizontal: CAB_MARGIN, paddingTop: 8, gap: 10 }}>
+      <View style={{ flexDirection: 'row', marginHorizontal: CAB_MARGIN, paddingTop: 12, gap: 14 }}>
         <View style={{ flex: 1, backgroundColor: '#0b1714', borderRadius: 8, borderWidth: 1, borderColor: '#2bc0a030', paddingVertical: 5, alignItems: 'center' }}>
           <Text style={{ color: '#2bc0a055', fontSize: 8, letterSpacing: 2, fontWeight: '600' }}>ROOT</Text>
           <Text style={{ color: '#2bc0a0', fontSize: 14, fontWeight: '700' }}>
@@ -633,22 +646,26 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
         </View>
       </View>
 
-      {/* Score / live accuracy */}
+      {/* Timer / score */}
       {boxFull ? (
-        <View style={{ alignItems: 'center', paddingTop: 8 }}>
+        <View style={{ alignItems: 'center', paddingTop: 12 }}>
           <Animated.Text style={{
-            fontSize: 56, fontWeight: '800', color: '#ffffff',
+            fontSize: 52, fontWeight: '800', color: timeColor(finalScore),
             transform: [{ scale: scoreLandAnim }], letterSpacing: -2,
           }}>
-            {displayedScore}
+            {(finalScore / 1000).toFixed(1)}s
           </Animated.Text>
-          <Text style={{ fontSize: 12, fontWeight: '700', color: scoreColor(finalScore), letterSpacing: 5, opacity: 0.85 }}>
-            {scoreLabel(finalScore)}
+          <Text style={{ fontSize: 12, fontWeight: '700', color: timeColor(finalScore), letterSpacing: 5, opacity: 0.85 }}>
+            {timeLabel(finalScore)}
           </Text>
         </View>
       ) : (
-        <View style={{ alignItems: 'center', paddingTop: 8 }}>
-          {liveAccuracy > 0 && (
+        <View style={{ alignItems: 'center', paddingTop: 12 }}>
+          {timerMs > 0 ? (
+            <Text style={{ fontSize: 36, fontWeight: '700', color: '#ffffff55', letterSpacing: -1 }}>
+              {(timerMs / 1000).toFixed(1)}s
+            </Text>
+          ) : liveAccuracy > 0 && (
             <Text style={{ fontSize: 28, fontWeight: '700', color: bandColor(liveAccuracy), letterSpacing: -1 }}>
               {liveAccuracy}%
             </Text>
@@ -656,7 +673,7 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
         </View>
       )}
 
-    </SafeAreaView>
+    </View>
   );
 };
 

@@ -1,6 +1,16 @@
 # Voxxy
 
-Vocal and Ear-Training Tools.
+Vocal and ear-training tools for singers. Local-only React Native app (Android + iOS). No account, no backend — everything lives on device.
+
+## Activities
+
+| Activity | What you do |
+|---|---|
+| **Range Expansion** | App plays notes at the edges of your range; you sing them back. Determines and stores your vocal range. |
+| **Pitch Match** | A target note appears on screen. Sing it — your pitch trails across the box in real time, colour-coded by accuracy. Scored on a weighted average across the window. |
+| **Interval Training** | Hear two notes played in sequence. Tap the second note on the piano keyboard to identify the interval. Up to 3 guesses, with Hear Again and Reveal options. |
+| **Interval Singing** | Hear the root note. A target bar shows the interval above or below. Sing it — a count-up timer runs until you hold the note accurately enough to hit the cumulative score threshold. |
+| **Sequences** *(in progress)* | Tap (or generate) a 4-note sequence on the piano, then sing each note in order and get scored across the whole sequence. |
 
 ---
 
