@@ -187,7 +187,7 @@ const highRangeItems = React.useMemo(() => {
       <View style={[styles.form, isLandscape && { padding: 10, paddingTop: 4 }]}>
         <Text style={styles.label}>Enter your name:</Text>
         <TextInput
-          style={[styles.input, { marginBottom: isLandscape ? 4 : 10 }]}
+          style={[styles.input, { marginBottom: isLandscape ? 4 : 10 }, !isLandscape && { width: '65%', alignSelf: 'flex-start' }]}
           onChangeText={newText => setName(newText)}
           value={name}
           placeholder={name}
@@ -198,6 +198,7 @@ const highRangeItems = React.useMemo(() => {
           items={lowRangeItems}
           value={low_range}
           onChangeValue={handleSetLowRange}
+          style={!isLandscape ? { width: '65%', alignSelf: 'flex-start' } : undefined}
         />
         <Text style={styles.label}>Vocal Range: Highest Note</Text>
         <Dropdown
@@ -205,6 +206,7 @@ const highRangeItems = React.useMemo(() => {
           items={highRangeItems}
           value={high_range}
           onChangeValue={item => handleSetHighRange(item)}
+          style={!isLandscape ? { width: '65%', alignSelf: 'flex-start' } : undefined}
         />
         <Text style={styles.label}>Voice Type</Text>
         <Text style={[styles.subtitleText, { color: '#2bc0a0ff', marginLeft: 10 }]}>{range_class}</Text>
@@ -231,16 +233,16 @@ const highRangeItems = React.useMemo(() => {
           </TouchableOpacity>
         </View>
       </View>
-      <TouchableOpacity style={[styles.button, { backgroundColor: "#09c9b9ff", left: 10, marginTop: isLandscape ? 4 : 12, paddingVertical: isLandscape ? 8 : 12 }]} onPress={onRangeSetup}>
+      <TouchableOpacity style={[styles.button, { backgroundColor: "#09c9b9ff", left: isLandscape ? 10 : 0, alignSelf: isLandscape ? 'flex-start' : 'center', width: isLandscape ? '80%' : '65%', marginTop: isLandscape ? 4 : 12, paddingVertical: isLandscape ? 8 : 12 }]} onPress={onRangeSetup}>
         <Text>Determine Your Range</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={[styles.button, { backgroundColor: "transparent", borderWidth: 1, borderColor: "#2bc0a0ff", left: 10, marginTop: isLandscape ? 4 : 6, paddingVertical: isLandscape ? 8 : 12 }]} onPress={onShowTutorial}>
+      <TouchableOpacity style={[styles.button, { backgroundColor: "transparent", borderWidth: 1, borderColor: "#2bc0a0ff", left: isLandscape ? 10 : 0, alignSelf: isLandscape ? 'flex-start' : 'center', width: isLandscape ? '80%' : '65%', marginTop: isLandscape ? 4 : 6, paddingVertical: isLandscape ? 8 : 12 }]} onPress={onShowTutorial}>
         <Text style={{ color: "#2bc0a0ff", fontSize: 13 }}>Show tutorial</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={[styles.primaryButton, { left: 10, marginTop: isLandscape ? 4 : 6, width: '60%', paddingVertical: isLandscape ? 8 : 12 }]} onPress={handleDone}>
+      <TouchableOpacity style={[styles.primaryButton, { left: isLandscape ? 10 : 0, alignSelf: isLandscape ? 'flex-start' : 'center', marginTop: isLandscape ? 4 : 6, width: isLandscape ? '60%' : '50%', paddingVertical: isLandscape ? 8 : 12 }]} onPress={handleDone}>
         <Text style={styles.backButtonText}>Done</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={[styles.button, { backgroundColor: "#3a1a1a", borderWidth: 1, borderColor: "#ff4444", left: 10, marginTop: isLandscape ? 4 : 6, paddingVertical: isLandscape ? 8 : 12 }]} onPress={handleDebugReset}>
+      <TouchableOpacity style={[styles.button, { backgroundColor: "#3a1a1a", borderWidth: 1, borderColor: "#ff4444", left: isLandscape ? 10 : 0, alignSelf: isLandscape ? 'flex-start' : 'center', width: isLandscape ? '80%' : '65%', marginTop: isLandscape ? 4 : 6, paddingVertical: isLandscape ? 8 : 12 }]} onPress={handleDebugReset}>
         <Text style={{ color: "#ff4444", fontSize: 12 }}>⚠ Reset Profile [DEBUG]</Text>
       </TouchableOpacity>
     </View>
@@ -248,7 +250,7 @@ const highRangeItems = React.useMemo(() => {
 
   return (
     <View style={styles.profileContainer}>
-      <View style={{ flex: 1, flexDirection: isLandscape ? 'row' : 'column' }}>
+      <View style={{ flex: 1, width: '100%', flexDirection: isLandscape ? 'row' : 'column' }}>
         {leftCol}
         {rightCol}
       </View>

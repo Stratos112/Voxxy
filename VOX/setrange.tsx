@@ -12,6 +12,7 @@ import {
   Text,
   View,
   TouchableOpacity,
+  useWindowDimensions,
  } from 'react-native';
 import { PitchDetector } from 'react-native-pitch-detector';
 import { Pitches } from './API/pitch';
@@ -35,6 +36,9 @@ const TUTORIAL_LINES = [
 
  //pitch match screen
 const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack, onComplete }) => {
+
+  const { width: screenW, height: screenH } = useWindowDimensions();
+  const isLandscape = screenW > screenH;
 
   const profileRef = useRef(new Profile());
   const increasingRef = useRef(true);
@@ -230,7 +234,7 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack, onComplete }) =
             />
           </TouchableOpacity>
           <TouchableOpacity
-            style={{ position: 'absolute', right: 10, top: 45, width: 36, height: 36, borderRadius: 18, backgroundColor: '#04756cff', justifyContent: 'center', alignItems: 'center', elevation: 8 }}
+            style={{ position: 'absolute', right: isLandscape ? 56 : 10, top: 45, width: 36, height: 36, borderRadius: 18, backgroundColor: '#04756cff', justifyContent: 'center', alignItems: 'center', elevation: 8 }}
             onPress={() => setShowTutorial(true)}
           >
             <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700' }}>?</Text>

@@ -9,9 +9,10 @@ interface DropDownProps {
   items: ItemType<string>[];
   value: string | null;
   onChangeValue: (value: string | null) => void;
+  style?: object;
 }
 
-const Dropdown: React.FC<DropDownProps> = ({ placeholder, items, value, onChangeValue }) => {
+const Dropdown: React.FC<DropDownProps> = ({ placeholder, items, value, onChangeValue, style }) => {
   const [open, setOpen] = useState(false);
 
   const customSetValue = (callbackOrValue: ((value: string | null) => string | null) | string | null) => {
@@ -32,8 +33,8 @@ const Dropdown: React.FC<DropDownProps> = ({ placeholder, items, value, onChange
         value={value}
         items={items}
         setOpen={setOpen}
-        setValue={customSetValue as Dispatch<SetStateAction<string | null>>} 
-        style={styles.dropdown}
+        setValue={customSetValue as Dispatch<SetStateAction<string | null>>}
+        style={style ? [styles.dropdown, style] : styles.dropdown}
       />
   );
 };
