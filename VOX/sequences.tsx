@@ -36,7 +36,11 @@ const SHARP_TO_FLAT: Record<string, string> = {
 
 const CAB_MARGIN = 10;
 const MIN_OCTAVE_W = 130;
-const ASSET_ASPECT = 420 / 224;
+// Cabinet asset proportions (1407 x 329 px source)
+const CAB_ASPECT = 329 / 1407;
+const CAB_KEY_LEFT = 109 / 1407;
+const CAB_KEY_TOP = 100 / 329;
+const CAB_KEYS_W = 1182 / 1407;
 
 function octaveOf(p: Pitch): number {
   const m = p.name.match(/(\d+)$/);
@@ -65,7 +69,7 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
   const abortPlay = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    Orientation.lockToPortrait();
+    Orientation.lockToLandscape();
     const init = async () => {
       await Pitches.setupPlayer();
       const profile = new Profile();
@@ -130,11 +134,15 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
 
   const numOctaves = Math.max(displayOctaves.length, 1);
   const availableW = W - CAB_MARGIN * 2;
-  const pianoWidth = Math.max(availableW, numOctaves * MIN_OCTAVE_W);
+  const neededPianoW = numOctaves * MIN_OCTAVE_W;
+  const cabinetW = Math.max(availableW, neededPianoW / CAB_KEYS_W);
+  const cabinetH = cabinetW * CAB_ASPECT;
+  const pianoWidth = cabinetW * CAB_KEYS_W;
+  const keyLeft = cabinetW * CAB_KEY_LEFT;
+  const keyTop = cabinetH * CAB_KEY_TOP;
   const octaveW = pianoWidth / numOctaves;
   const whiteW = octaveW / 7;
   const blackW = whiteW * 0.6;
-  const pianoHeight = octaveW / ASSET_ASPECT;
 
   const keyOverlay = phase === 'record' && !playingBack ? (
     <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} pointerEvents="box-none">
@@ -161,10 +169,8 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
     </View>
   ) : null;
 
-  const safeTop = (StatusBar.currentHeight ?? 24) + 10;
-
   const header = (
-    <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: safeTop, paddingBottom: 12 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8 }}>
       <TouchableOpacity
         onPress={handleBack}
         style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: '#04756cff', justifyContent: 'center', alignItems: 'center', elevation: 8 }}
@@ -184,6 +190,7 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
   if (phase === 'perform') {
     return (
       <View style={styles.sequenceContainer}>
+        <StatusBar hidden />
         {header}
         <TutorialModal visible={showTutorial} title="Sequences" lines={TUTORIAL_LINES} onClose={() => setShowTutorial(false)} />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 }}>
@@ -204,12 +211,13 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
 
   return (
     <View style={styles.sequenceContainer}>
+      <StatusBar hidden />
       {header}
       <TutorialModal visible={showTutorial} title="Sequences" lines={TUTORIAL_LINES} onClose={() => setShowTutorial(false)} />
 
       {/* Recorded sequence — touchable, tap a note to remove it */}
       <View style={{
-        marginHorizontal: CAB_MARGIN, marginBottom: 12, minHeight: 56,
+        marginHorizontal: CAB_MARGIN, marginBottom: 8, minHeight: 50,
         backgroundColor: '#0b1714', borderRadius: 8, borderWidth: 1, borderColor: '#2bc0a030',
         justifyContent: 'center', paddingVertical: 6,
       }}>
@@ -240,16 +248,23 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
         )}
       </View>
 
-      {/* Keyboard */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={pianoWidth > availableW} style={{ flexGrow: 0 }}>
-        <View style={{ width: pianoWidth, height: pianoHeight, marginHorizontal: CAB_MARGIN, position: 'relative' }}>
-          <Piano pressedKeys={pressedKeys} octaves={displayOctaves} />
-          {keyOverlay}
+      {/* Cabinet + keyboard */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={cabinetW > availableW} style={{ flexGrow: 0 }}>
+        <View style={{ width: cabinetW, height: cabinetH, marginHorizontal: CAB_MARGIN, position: 'relative' }}>
+          <Image
+            source={require('../static/piano/cabinet.png')}
+            style={{ width: cabinetW, height: cabinetH }}
+            resizeMode="stretch"
+          />
+          <View style={{ position: 'absolute', left: keyLeft, top: keyTop, width: pianoWidth }}>
+            <Piano pressedKeys={pressedKeys} octaves={displayOctaves} />
+            {keyOverlay}
+          </View>
         </View>
       </ScrollView>
 
       {/* Controls */}
-      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 10, marginTop: 20, paddingHorizontal: CAB_MARGIN }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 10, marginTop: 14, paddingHorizontal: CAB_MARGIN }}>
         <TouchableOpacity
           disabled={sequence.length === 0}
           onPress={clearSequence}
