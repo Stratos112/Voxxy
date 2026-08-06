@@ -16,9 +16,7 @@ import styles from './UI/styles';
 import TutorialModal from './UI/TutorialModal';
 
 const TUTORIAL_LINES = [
-  "You'll hear a root note followed by a second note somewhere above or below it.",
-  "Tap the piano key you think matches the interval between the two notes.",
-  "You get 3 guesses per round. Hear Again replays the notes, and Reveal shows the answer if you're stuck.",
+  "Listen to the interval, then play the note on the keyboard that represents the correct distance from the root.",
 ];
 
 interface IntervalScreenProps {
@@ -319,7 +317,7 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
     <View style={{ flex: 1, backgroundColor: '#282c2eff' }}>
       <StatusBar hidden />
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8, position: 'relative' }}>
         <TouchableOpacity
           onPress={handleBack}
           style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: '#04756cff', justifyContent: 'center', alignItems: 'center', elevation: 8 }}
@@ -351,7 +349,11 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
           )}
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', width: 60, justifyContent: 'flex-end', marginRight: Math.round(W * 0.15) }}>
+        <View style={{
+          position: 'absolute', top: 18,
+          left: keyLeft + (displayOctaves.length - 1) * octW,
+          flexDirection: 'row', gap: 6, alignItems: 'center',
+        }}>
           {[0, 1, 2].map(i => {
             const isWrong = i < wrongGuesses;
             const isCorrect = i === wrongGuesses && semitoneOff === 0;
@@ -368,7 +370,7 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
 
         <TouchableOpacity
           onPress={() => setShowTutorial(true)}
-          style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#04756cff', justifyContent: 'center', alignItems: 'center', elevation: 8 }}
+          style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#04756cff', justifyContent: 'center', alignItems: 'center', elevation: 8, marginRight: 56 }}
         >
           <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>?</Text>
         </TouchableOpacity>

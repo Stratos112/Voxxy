@@ -23,8 +23,8 @@ import { Profile } from './profile';
 import TutorialModal from './UI/TutorialModal';
 
 const TUTORIAL_LINES = [
-  "A target note plays — match it with your voice and hold it steady.",
-  "Your pitch traces a live trail up the screen. The closer it hugs the target band, the higher your score.",
+  "After you hear the target pitch, match it with your voice and hold it steady.",
+  "The closer you hug the target band, the higher your score.",
   "Tap New Target any time to move on to the next note.",
 ];
 

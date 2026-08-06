@@ -18,9 +18,10 @@ import styles from './UI/styles';
 import TutorialModal from './UI/TutorialModal';
 
 const TUTORIAL_LINES = [
-  "Tap keys on the piano to record a sequence of notes — each tap plays the note and adds it to your list.",
+  "Tap keys on the piano to record a sequence of notes.",
   "Tap a note above the keyboard to remove it from your sequence.",
-  "When you're happy with it, hit Continue — you'll sing the sequence back against staggered target bars, one second per note.",
+  "When you're happy with it, hit Continue to practice nailing it.",
+  "*hint* click 'hear sequence' and sing along before doing it for real.",
 ];
 
 interface SequenceScreenProps {
@@ -78,7 +79,9 @@ function octaveRange(low: Pitch, high: Pitch): number[] {
 type Phase = 'record' | 'perform';
 
 // --- Perform stage: sing the sequence back against staggered target bars ---
-const PB_NOTE_MS = 1000;
+const PB_NOTE_MS = 2000;
+const PB_LEAD_IN_MS = 1000;
+const PB_TICK_MS = 50;
 const PB_GRID_MARGIN = 10;
 const PB_MAX_TAIL = 200;
 const PB_NUM_PARTICLES = 10;
@@ -143,6 +146,7 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
   const pbDotCounterRef = useRef(0);
   const pbLastVisualRef = useRef(0);
   const pbActiveRef = useRef(false);
+  const pbIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Perfect-hit glow + particle burst
   const pbGlowAnim = useRef(new Animated.Value(0)).current;
@@ -168,7 +172,7 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
     return () => {
       Orientation.unlockAllOrientations();
       abortPlay.current?.();
-      pbScoreX.stopAnimation();
+      if (pbIntervalRef.current) clearInterval(pbIntervalRef.current);
     };
   }, []);
 
@@ -180,11 +184,6 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
       Orientation.lockToPortrait();
     }
   }, [phase]);
-
-  useEffect(() => {
-    const sub = pbScoreX.addListener(({ value }) => { pbSquareLeftRef.current = value; });
-    return () => pbScoreX.removeListener(sub);
-  }, []);
 
   const handleNotePress = useCallback((noteName: string, octave: number) => {
     abortPlay.current?.();
@@ -220,16 +219,15 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
     );
   }, [sequence]);
 
-  // Perform stage: plays each note for exactly PB_NOTE_MS, so "Hear Sequence" matches the scoring timeline note-for-note
+  // Perform stage: matches the scoring timeline note-for-note — same 1s lead-in silence, then PB_NOTE_MS per note
   const pbHearSequence = useCallback(() => {
     if (sequence.length === 0) return;
     abortPlay.current?.();
     setPlayingBack(true);
-    abortPlay.current = Pitches.playMono(
-      sequence,
-      PB_NOTE_MS,
-      () => setPlayingBack(false)
-    );
+    const timer = setTimeout(() => {
+      abortPlay.current = Pitches.playMono(sequence, PB_NOTE_MS, () => setPlayingBack(false));
+    }, PB_LEAD_IN_MS);
+    abortPlay.current = () => clearTimeout(timer);
   }, [sequence]);
 
   const handleContinue = () => {
@@ -245,7 +243,7 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
   };
 
   const handleBackToEditing = () => {
-    pbScoreX.stopAnimation();
+    if (pbIntervalRef.current) { clearInterval(pbIntervalRef.current); pbIntervalRef.current = null; }
     pbActiveRef.current = false;
     setPbRunning(false);
     setPhase('record');
@@ -253,7 +251,7 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
 
   const handleBack = () => {
     abortPlay.current?.();
-    pbScoreX.stopAnimation();
+    if (pbIntervalRef.current) { clearInterval(pbIntervalRef.current); pbIntervalRef.current = null; }
     pbActiveRef.current = false;
     onBack();
   };
@@ -272,28 +270,48 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
   const PB_BAR_LEFT = 14;
   const PB_BAR_RIGHT = PB_BOX_W - 14;
   const PB_BAR_WIDTH = PB_BAR_RIGHT - PB_BAR_LEFT;
-  const pbTotalMs = sequence.length * PB_NOTE_MS;
-  const pbSegW = sequence.length > 0 ? PB_BAR_WIDTH / sequence.length : PB_BAR_WIDTH;
+  const pbTotalMs = PB_LEAD_IN_MS + sequence.length * PB_NOTE_MS;
+  // First second of the sweep is empty "get ready" space — notes occupy the remaining width
+  const pbLeadInWidth = PB_BAR_WIDTH * (PB_LEAD_IN_MS / pbTotalMs);
+  const pbNoteAreaWidth = PB_BAR_WIDTH - pbLeadInWidth;
+  const pbSegW = sequence.length > 0 ? pbNoteAreaWidth / sequence.length : pbNoteAreaWidth;
 
   const pbTargetSegments = useMemo(() => sequence.map((p, i) => ({
     pitch: p,
-    left: PB_BAR_LEFT + i * pbSegW,
+    left: PB_BAR_LEFT + pbLeadInWidth + i * pbSegW,
     top: pbFreqToY(p.frequency, pbRange.lo, pbRange.hi, PB_BOX_H),
-  })), [sequence, pbSegW, pbRange, PB_BOX_H]);
+  })), [sequence, pbSegW, pbLeadInWidth, pbRange, PB_BOX_H]);
 
   const finishPerform = useCallback(() => {
     pbActiveRef.current = false;
     setPbRunning(false);
     setPbActiveNoteIdx(-1);
+    // -1 = no samples captured for that note (kept distinct from a genuine 0% score)
     const scores = pbNoteSumsRef.current.map((sum, i) => {
       const count = pbNoteCountsRef.current[i];
-      return count > 0 ? Math.round(sum / count) : 0;
+      return count > 0 ? Math.round(sum / count) : -1;
     });
     setPbNoteScores(scores);
-    const overall = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+    const validScores = scores.filter(s => s >= 0);
+    const overall = validScores.length > 0 ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length) : 0;
     setPbOverallScore(overall);
     setPbDone(true);
   }, []);
+
+  // Cursor position is recomputed from absolute elapsed time on every tick — self-correcting even if a tick
+  // is delayed (it jumps to the right spot next time), instead of relying on Animated's JS-driven RAF loop.
+  const pbTick = useCallback(() => {
+    if (!pbActiveRef.current) return;
+    const elapsed = Date.now() - pbStartTimeRef.current;
+    const progress = Math.min(1, elapsed / pbTotalMs);
+    const x = PB_BAR_LEFT + progress * (PB_BAR_RIGHT - PB_BAR_LEFT);
+    pbScoreX.setValue(x);
+    pbSquareLeftRef.current = x;
+    if (elapsed >= pbTotalMs) {
+      if (pbIntervalRef.current) { clearInterval(pbIntervalRef.current); pbIntervalRef.current = null; }
+      finishPerform();
+    }
+  }, [pbTotalMs, PB_BAR_LEFT, PB_BAR_RIGHT, finishPerform]);
 
   const pbStart = useCallback(() => {
     if (sequence.length === 0 || pbRunning) return;
@@ -305,27 +323,35 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
     setPbDone(false);
     setPbNoteScores([]);
     setPbOverallScore(0);
-    setPbActiveNoteIdx(0);
+    setPbActiveNoteIdx(-1); // -1 = still in the lead-in, nothing targeted yet
     pbScoreX.setValue(PB_BAR_LEFT);
     pbSquareLeftRef.current = PB_BAR_LEFT;
     pbStartTimeRef.current = Date.now();
     pbActiveRef.current = true;
     setPbRunning(true);
-    Animated.timing(pbScoreX, { toValue: PB_BAR_RIGHT, duration: pbTotalMs, useNativeDriver: false })
-      .start(({ finished }) => { if (finished) finishPerform(); });
-  }, [sequence, pbRunning, pbTotalMs, PB_BAR_LEFT, PB_BAR_RIGHT, finishPerform]);
+    if (pbIntervalRef.current) clearInterval(pbIntervalRef.current);
+    pbIntervalRef.current = setInterval(pbTick, PB_TICK_MS);
+  }, [sequence, pbRunning, pbTick]);
 
   useEffect(() => {
     if (!pbRunning) return;
     let subscription: any;
+    try {
+      // Defensive: on "Try Again" a previous native session may not have fully torn down yet
+      PitchDetector.stop();
+    } catch (e) {
+      // no-op — nothing was running
+    }
     try {
       PitchDetector.start();
       subscription = PitchDetector.addListener((value: { frequency: number; tone: string }) => {
         if (!pbActiveRef.current) return;
         const nowMs = Date.now();
         const elapsed = nowMs - pbStartTimeRef.current;
-        const noteIdx = Math.min(sequence.length - 1, Math.max(0, Math.floor(elapsed / PB_NOTE_MS)));
-        const target = sequence[noteIdx];
+        const noteElapsed = elapsed - PB_LEAD_IN_MS;
+        // -1 while still in the lead-in — empty space, nothing to score yet
+        const noteIdx = noteElapsed < 0 ? -1 : Math.min(sequence.length - 1, Math.floor(noteElapsed / PB_NOTE_MS));
+        const target = noteIdx >= 0 ? sequence[noteIdx] : undefined;
         let color = '#ffffff';
         // Scoring math runs on every sample (cheap ref writes) — only the visual setState below is throttled
         if (target && value.frequency > 0) {
@@ -354,7 +380,7 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
           }
         }
 
-        // Throttle React re-renders so the JS-driven scoreX sweep doesn't get starved of frame time
+        // Throttle React re-renders — keeps the JS thread free enough for the tick interval to stay on schedule
         if (nowMs - pbLastVisualRef.current < PB_VISUAL_THROTTLE_MS) return;
         pbLastVisualRef.current = nowMs;
 
@@ -457,7 +483,7 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
             let opacity = 0.75;
             if (pbDone) {
               const scoreForSeg = pbNoteScores[i];
-              barColor = scoreForSeg !== undefined ? pbBandColor(scoreForSeg) : PB_PASSED_GREY;
+              barColor = scoreForSeg !== undefined && scoreForSeg >= 0 ? pbBandColor(scoreForSeg) : PB_PASSED_GREY;
               opacity = 1;
             } else if (pbRunning && i < pbActiveNoteIdx) {
               // Already swept past — show its live average score color, which is what it'll stay once done

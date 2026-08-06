@@ -19,8 +19,8 @@ import TutorialModal from './UI/TutorialModal';
 
 const TUTORIAL_LINES = [
   "You'll hear a root note, then a target bar shows the interval above or below it.",
-  "Sing to reach that target and hold it — your score climbs while you're on pitch.",
-  "The timer stops the moment your cumulative score crosses the threshold.",
+  "Sing to reach that target and hold it. Your score climbs while you're on pitch.",
+  "The timer stops the moment your cumulative score is 'close enough' (score >= 150).",
 ];
 
 const { height: SCREEN_H } = Dimensions.get('window');
