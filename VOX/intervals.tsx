@@ -350,19 +350,19 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
         </View>
 
         <View style={{
-          position: 'absolute', top: 18,
+          position: 'absolute', top: 30,
           left: keyLeft + (displayOctaves.length - 1) * octW,
-          flexDirection: 'row', gap: 6, alignItems: 'center',
+          flexDirection: 'row', gap: 8, alignItems: 'center',
         }}>
           {[0, 1, 2].map(i => {
             const isWrong = i < wrongGuesses;
             const isCorrect = i === wrongGuesses && semitoneOff === 0;
             return (
               <View key={i} style={{
-                width: 10, height: 10, borderRadius: 5,
-                backgroundColor: isCorrect ? '#00e060' : isWrong ? '#ff3344' : 'transparent',
+                width: 14, height: 14, borderRadius: 7,
+                backgroundColor: isCorrect ? '#5cffb0' : isWrong ? '#ff6b7a' : 'transparent',
                 borderWidth: 1.5,
-                borderColor: isCorrect ? '#00e06088' : '#ff334488',
+                borderColor: isCorrect ? '#5cffb0' : isWrong ? '#ff6b7a' : '#ffffff66',
               }} />
             );
           })}
