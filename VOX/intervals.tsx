@@ -13,6 +13,13 @@ import { Profile } from './profile';
 import { Pitch, Pitches } from './API/pitch';
 import Piano, { pitchToKey } from './UI/Piano';
 import styles from './UI/styles';
+import TutorialModal from './UI/TutorialModal';
+
+const TUTORIAL_LINES = [
+  "You'll hear a root note followed by a second note somewhere above or below it.",
+  "Tap the piano key you think matches the interval between the two notes.",
+  "You get 3 guesses per round. Hear Again replays the notes, and Reveal shows the answer if you're stuck.",
+];
 
 interface IntervalScreenProps {
   onBack: () => void;
@@ -97,6 +104,7 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
   const [revealed, setRevealed] = useState(false);
   const [rootNoteName, setRootNoteName] = useState<string | null>(null);
   const [wrongGuesses, setWrongGuesses] = useState(0);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   const userLow = useRef<Pitch>(Pitches.C2);
   const userHigh = useRef<Pitch>(Pitches.C6);
@@ -357,7 +365,21 @@ const IntervalScreen: React.FC<IntervalScreenProps> = ({ onBack }) => {
             );
           })}
         </View>
+
+        <TouchableOpacity
+          onPress={() => setShowTutorial(true)}
+          style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#04756cff', justifyContent: 'center', alignItems: 'center', elevation: 8 }}
+        >
+          <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>?</Text>
+        </TouchableOpacity>
       </View>
+
+      <TutorialModal
+        visible={showTutorial}
+        title="Interval Training"
+        lines={TUTORIAL_LINES}
+        onClose={() => setShowTutorial(false)}
+      />
 
       {/* Cabinet + Piano */}
       <View style={{ marginHorizontal: CAB_MARGIN, marginTop: 4 }}>

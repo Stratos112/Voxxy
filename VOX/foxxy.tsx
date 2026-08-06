@@ -45,9 +45,7 @@ const FoxxyScreen: React.FC<Props> = ({ onDone, onRangeSetup, bridgeMode, bridge
         const cls  = p.range_class !== 'undecided' ? p.range_class : 'a unique voice';
         setFinalLines([
           `${p.name}, your range is ${low} to ${high}. That makes you ${cls}. Thanks for helping us calibrate!`,
-          "Range Expansion is here whenever you want to push your limits further. Pitch Match trains your accuracy one note at a time.",
-          "Interval Training sharpens your ear for the space between notes. Sequences build your accuracy across short melodies.",
-          "Find your preferences in the settings wheel at the top right. You can replay this tour from there any time. Now have a blast!",
+          "Look for the ? button in each activity if you need a refresher, or find the settings wheel at the top right to replay this tour any time. Now have a blast!",
         ]);
       }
     });

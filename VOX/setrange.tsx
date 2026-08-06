@@ -5,8 +5,6 @@
  * August 2025
 **/
 
-//TODO: some kind of visual for target, and progress so far
-
 import React , {useState, useEffect, useCallback, useRef} from 'react';
 import {
   Image,
@@ -20,6 +18,13 @@ import { Pitches } from './API/pitch';
 import {Grade} from './API/grade';
 import { Profile } from './profile';
 import styles from './UI/styles';
+import TutorialModal from './UI/TutorialModal';
+
+const TUTORIAL_LINES = [
+  "We'll play a note and listen for 3 seconds while you sing it back.",
+  "Nail it and we move further out. Miss a few times in a row and we back off — that's how we find the edges of your range.",
+  "Just relax and sing naturally. There's no penalty for trying.",
+];
 
 
  interface setRangeScreenProps {
@@ -50,7 +55,8 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack, onComplete }) =
   const [avgGrade, setAvgGrade] = useState(0.0);
   const [listening, setListening] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'active' | 'result' | 'done'>('idle');
-  
+  const [showTutorial, setShowTutorial] = useState(false);
+
   
   function clearActiveTimer() {
     if (activeTimerRef.current) {
@@ -223,6 +229,18 @@ const SetRangeScreen: React.FC<setRangeScreenProps> = ({ onBack, onComplete }) =
               resizeMode="contain"
             />
           </TouchableOpacity>
+          <TouchableOpacity
+            style={{ position: 'absolute', right: 10, top: 45, width: 36, height: 36, borderRadius: 18, backgroundColor: '#04756cff', justifyContent: 'center', alignItems: 'center', elevation: 8 }}
+            onPress={() => setShowTutorial(true)}
+          >
+            <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700' }}>?</Text>
+          </TouchableOpacity>
+          <TutorialModal
+            visible={showTutorial}
+            title="Range Expansion"
+            lines={TUTORIAL_LINES}
+            onClose={() => setShowTutorial(false)}
+          />
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
             <Text style={styles.titleText}>Try to sing this pitch.</Text>
             <Text style={[styles.subtitleText, { marginTop: 16 }]}>Target: {Pitches.displayName(expected)}</Text>

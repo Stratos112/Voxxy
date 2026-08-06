@@ -15,6 +15,13 @@ import { Pitch, Pitches } from './API/pitch';
 import { Grade } from './API/grade';
 import { Profile } from './profile';
 import Piano, { pitchToKey } from './UI/Piano';
+import TutorialModal from './UI/TutorialModal';
+
+const TUTORIAL_LINES = [
+  "You'll hear a root note, then a target bar shows the interval above or below it.",
+  "Sing to reach that target and hold it — your score climbs while you're on pitch.",
+  "The timer stops the moment your cumulative score crosses the threshold.",
+];
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
@@ -162,6 +169,7 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
     }))
   ).current;
   const [perfectPos, setPerfectPos] = useState({ x: -100, y: -100 });
+  const [showTutorial, setShowTutorial] = useState(false);
 
   useEffect(() => {
     Orientation.lockToPortrait();
@@ -493,7 +501,19 @@ const IntervalSingingScreen: React.FC<IntervalSingingScreenProps> = ({ onBack })
         >
           <Text style={styles.backButtonText}>{started ? 'Next' : 'Start'}</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setShowTutorial(true)}
+          style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#04756cff', justifyContent: 'center', alignItems: 'center', marginLeft: 10, elevation: 8 }}
+        >
+          <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700' }}>?</Text>
+        </TouchableOpacity>
       </View>
+      <TutorialModal
+        visible={showTutorial}
+        title="Interval Singing"
+        lines={TUTORIAL_LINES}
+        onClose={() => setShowTutorial(false)}
+      />
 
       {/* Pitch box — 2/3 of screen height */}
       <View style={{

@@ -20,6 +20,13 @@ import styles, { pitchBoxHeight, pitchBoxWidth } from './UI/styles';
 import { Pitch, Pitches } from './API/pitch';
 import { Grade } from './API/grade';
 import { Profile } from './profile';
+import TutorialModal from './UI/TutorialModal';
+
+const TUTORIAL_LINES = [
+  "A target note plays — match it with your voice and hold it steady.",
+  "Your pitch traces a live trail up the screen. The closer it hugs the target band, the higher your score.",
+  "Tap New Target any time to move on to the next note.",
+];
 
 const MAX_TAIL      = 200;
 const GRID_MARGIN   = 10;
@@ -167,6 +174,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
     }))
   ).current;
   const [perfectPos, setPerfectPos] = useState({ x: -100, y: -100 });
+  const [showTutorial, setShowTutorial] = useState(false);
 
   useEffect(() => {
     Orientation.lockToPortrait();
@@ -460,7 +468,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
         />
       </TouchableOpacity>
 
-      <View style={{ flexDirection: 'row', marginBottom: 0 }}>
+      <View style={{ flexDirection: 'row', marginBottom: 0, alignItems: 'center' }}>
         <Text style={[styles.titleText, { marginBottom: 2 }]}>Pitch Match</Text>
         <TouchableOpacity
           style={[styles.primaryButton, { width: '40%', height: '80%', margin: 2, marginLeft: 20, paddingVertical: 5 }]}
@@ -468,7 +476,19 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
         >
           <Text style={styles.backButtonText}>{started ? 'New Target' : 'Start'}</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#04756cff', justifyContent: 'center', alignItems: 'center', marginLeft: 10, elevation: 8 }}
+          onPress={() => setShowTutorial(true)}
+        >
+          <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>?</Text>
+        </TouchableOpacity>
       </View>
+      <TutorialModal
+        visible={showTutorial}
+        title="Pitch Match"
+        lines={TUTORIAL_LINES}
+        onClose={() => setShowTutorial(false)}
+      />
 
       <View style={{ position: 'relative' }}>
       <View style={styles.pitchBox}>
