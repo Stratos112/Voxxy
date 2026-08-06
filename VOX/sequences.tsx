@@ -34,6 +34,21 @@ const SHARP_TO_FLAT: Record<string, string> = {
   'C#': 'Db', 'D#': 'Eb', 'F#': 'Gb', 'G#': 'Ab', 'A#': 'Bb',
 };
 
+const INTERVAL_NAMES: Record<number, string> = {
+  0: 'Unison', 1: 'Min 2nd', 2: 'Maj 2nd', 3: 'Min 3rd', 4: 'Maj 3rd',
+  5: 'Perf 4th', 6: 'Tritone', 7: 'Perf 5th', 8: 'Min 6th',
+  9: 'Maj 6th', 10: 'Min 7th', 11: 'Maj 7th', 12: 'Octave',
+};
+function intervalName(n: number): string {
+  return INTERVAL_NAMES[Math.abs(n)] ?? `${Math.abs(n)} st`;
+}
+function intervalArrow(diff: number): string {
+  return diff > 0 ? '↑' : diff < 0 ? '↓' : '•';
+}
+function intervalColor(diff: number): string {
+  return diff > 0 ? '#2bc0a0' : diff < 0 ? '#ff9944' : '#888888';
+}
+
 const CAB_MARGIN = 10;
 const MIN_OCTAVE_W = 130;
 // Cabinet asset proportions (1407 x 329 px source)
@@ -230,20 +245,35 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
           </Text>
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 8, alignItems: 'center' }}>
-            {sequence.map((pitch, idx) => (
-              <TouchableOpacity
-                key={`${pitch.name}-${idx}`}
-                onPress={() => removeNoteAt(idx)}
-                style={{
-                  backgroundColor: '#04756cff', borderRadius: 6, paddingVertical: 6, paddingHorizontal: 10,
-                  marginHorizontal: 4,
-                }}
-              >
-                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>
-                  {Pitches.displayName(pitch)}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {sequence.map((pitch, idx) => {
+              const next = sequence[idx + 1];
+              const diff = next ? next.id - pitch.id : 0;
+              return (
+                <React.Fragment key={`${pitch.name}-${idx}`}>
+                  <TouchableOpacity
+                    onPress={() => removeNoteAt(idx)}
+                    style={{
+                      backgroundColor: '#04756cff', borderRadius: 6, paddingVertical: 6, paddingHorizontal: 10,
+                      marginHorizontal: 4,
+                    }}
+                  >
+                    <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>
+                      {Pitches.displayName(pitch)}
+                    </Text>
+                  </TouchableOpacity>
+                  {next && (
+                    <View style={{ alignItems: 'center', marginHorizontal: 2, width: 44 }}>
+                      <Text style={{ color: intervalColor(diff), fontSize: 13, fontWeight: '700' }}>
+                        {intervalArrow(diff)}
+                      </Text>
+                      <Text style={{ color: intervalColor(diff), fontSize: 8, fontWeight: '600', opacity: 0.8 }} numberOfLines={1}>
+                        {intervalName(diff)}
+                      </Text>
+                    </View>
+                  )}
+                </React.Fragment>
+              );
+            })}
           </ScrollView>
         )}
       </View>
