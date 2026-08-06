@@ -82,13 +82,15 @@ const PB_NOTE_MS = 1000;
 const PB_GRID_MARGIN = 10;
 const PB_MAX_TAIL = 200;
 const PB_NUM_PARTICLES = 10;
+const PB_VISUAL_THROTTLE_MS = 40;
 const PB_BANDS = [
   { min: 99, color: '#b8f0ff' },
-  { min: 96, color: '#0f854c' },
-  { min: 90, color: '#768808' },
-  { min: 85, color: '#7f5011' },
-  { min: 0,  color: '#571707' },
+  { min: 96, color: '#00e676' },
+  { min: 90, color: '#c6ff00' },
+  { min: 85, color: '#ffb300' },
+  { min: 0,  color: '#ff3b30' },
 ];
+const PB_PASSED_GREY = '#9aa0a6';
 function pbBandColor(score: number): string {
   for (const band of PB_BANDS) {
     if (score >= band.min) return band.color;
@@ -139,6 +141,7 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
   const pbNoteSumsRef = useRef<number[]>([]);
   const pbNoteCountsRef = useRef<number[]>([]);
   const pbDotCounterRef = useRef(0);
+  const pbLastVisualRef = useRef(0);
   const pbActiveRef = useRef(false);
 
   // Perfect-hit glow + particle burst
@@ -297,6 +300,7 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
     pbNoteSumsRef.current = new Array(sequence.length).fill(0);
     pbNoteCountsRef.current = new Array(sequence.length).fill(0);
     pbDotCounterRef.current = 0;
+    pbLastVisualRef.current = 0;
     setPbPitchLine([]);
     setPbDone(false);
     setPbNoteScores([]);
@@ -318,17 +322,18 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
       PitchDetector.start();
       subscription = PitchDetector.addListener((value: { frequency: number; tone: string }) => {
         if (!pbActiveRef.current) return;
-        const elapsed = Date.now() - pbStartTimeRef.current;
+        const nowMs = Date.now();
+        const elapsed = nowMs - pbStartTimeRef.current;
         const noteIdx = Math.min(sequence.length - 1, Math.max(0, Math.floor(elapsed / PB_NOTE_MS)));
         const target = sequence[noteIdx];
         let color = '#ffffff';
+        // Scoring math runs on every sample (cheap ref writes) — only the visual setState below is throttled
         if (target && value.frequency > 0) {
           const score = Grade.grade(target.frequency, value.frequency);
           color = pbBandColor(score);
           pbNoteSumsRef.current[noteIdx] += score;
           pbNoteCountsRef.current[noteIdx] += 1;
 
-          const nowMs = Date.now();
           if (score >= 99 && nowMs - pbLastPerfectFireRef.current > 700) {
             pbLastPerfectFireRef.current = nowMs;
             const cx = pbSquareLeftRef.current;
@@ -348,6 +353,11 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
             });
           }
         }
+
+        // Throttle React re-renders so the JS-driven scoreX sweep doesn't get starved of frame time
+        if (nowMs - pbLastVisualRef.current < PB_VISUAL_THROTTLE_MS) return;
+        pbLastVisualRef.current = nowMs;
+
         setPbActiveNoteIdx(noteIdx);
         if (pbSquareLeftRef.current <= PB_BAR_RIGHT) {
           const top = pbFreqToY(value.frequency, pbRange.lo, pbRange.hi, PB_BOX_H) - 2;
@@ -443,13 +453,25 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
           borderColor: '#84d3ebff', borderWidth: 1, backgroundColor: 'black', overflow: 'hidden', position: 'relative',
         }}>
           {pbTargetSegments.map((seg, i) => {
-            const scoreForSeg = pbDone ? pbNoteScores[i] : undefined;
-            const barColor = scoreForSeg !== undefined ? pbBandColor(scoreForSeg) : '#00d460ff';
+            let barColor = '#00d460ff';
+            let opacity = 0.75;
+            if (pbDone) {
+              const scoreForSeg = pbNoteScores[i];
+              barColor = scoreForSeg !== undefined ? pbBandColor(scoreForSeg) : PB_PASSED_GREY;
+              opacity = 1;
+            } else if (pbRunning && i < pbActiveNoteIdx) {
+              // Already swept past — show its live average score color, which is what it'll stay once done
+              const count = pbNoteCountsRef.current[i];
+              barColor = count > 0 ? pbBandColor(pbNoteSumsRef.current[i] / count) : PB_PASSED_GREY;
+              opacity = 1;
+            } else if (pbRunning && i === pbActiveNoteIdx) {
+              opacity = 1;
+            }
             return (
               <React.Fragment key={`seg-${i}`}>
                 <View style={{
                   position: 'absolute', left: seg.left, top: seg.top, width: pbSegW - 3, height: 4,
-                  backgroundColor: barColor, opacity: pbActiveNoteIdx === i && pbRunning ? 1 : 0.75,
+                  backgroundColor: barColor, opacity,
                 }} />
                 <Text
                   numberOfLines={1}

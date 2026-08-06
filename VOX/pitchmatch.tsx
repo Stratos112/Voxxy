@@ -509,7 +509,7 @@ const PitchMatchScreen: React.FC<PitchMatchScreenProps> = ({ onBack }) => {
             left: BAR_LEFT,
             height: 5,
             width: coverWidth,
-            backgroundColor: 'black',
+            backgroundColor: '#9aa0a6',
           }} />
         )}
 
