@@ -40,7 +40,12 @@ const INTERVAL_NAMES: Record<number, string> = {
   9: 'Maj 6th', 10: 'Min 7th', 11: 'Maj 7th', 12: 'Octave',
 };
 function intervalName(n: number): string {
-  return INTERVAL_NAMES[Math.abs(n)] ?? `${Math.abs(n)} st`;
+  const abs = Math.abs(n);
+  if (abs <= 12) return INTERVAL_NAMES[abs] ?? `${abs} st`;
+  const octaves = Math.floor(abs / 12);
+  const rem = abs % 12;
+  if (rem === 0) return `${octaves} Octave${octaves > 1 ? 's' : ''}`;
+  return `${INTERVAL_NAMES[rem] ?? `${rem} st`} + ${octaves} Octave${octaves > 1 ? 's' : ''}`;
 }
 function intervalArrow(diff: number): string {
   return diff > 0 ? '↑' : diff < 0 ? '↓' : '•';
@@ -262,11 +267,11 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
                     </Text>
                   </TouchableOpacity>
                   {next && (
-                    <View style={{ alignItems: 'center', marginHorizontal: 2, width: 44 }}>
+                    <View style={{ alignItems: 'center', marginHorizontal: 2, width: 60 }}>
                       <Text style={{ color: intervalColor(diff), fontSize: 13, fontWeight: '700' }}>
                         {intervalArrow(diff)}
                       </Text>
-                      <Text style={{ color: intervalColor(diff), fontSize: 8, fontWeight: '600', opacity: 0.8 }} numberOfLines={1}>
+                      <Text style={{ color: intervalColor(diff), fontSize: 8, fontWeight: '600', opacity: 0.8, textAlign: 'center' }} numberOfLines={2}>
                         {intervalName(diff)}
                       </Text>
                     </View>
