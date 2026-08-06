@@ -217,6 +217,18 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
     );
   }, [sequence]);
 
+  // Perform stage: plays each note for exactly PB_NOTE_MS, so "Hear Sequence" matches the scoring timeline note-for-note
+  const pbHearSequence = useCallback(() => {
+    if (sequence.length === 0) return;
+    abortPlay.current?.();
+    setPlayingBack(true);
+    abortPlay.current = Pitches.playMono(
+      sequence,
+      PB_NOTE_MS,
+      () => setPlayingBack(false)
+    );
+  }, [sequence]);
+
   const handleContinue = () => {
     if (sequence.length === 0) return;
     abortPlay.current?.();
@@ -518,7 +530,7 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
             <TouchableOpacity onPress={handleBackToEditing} style={{ backgroundColor: '#3a1a1a', borderWidth: 1, borderColor: '#ff4444', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 20 }}>
               <Text style={{ color: '#ff4444', fontWeight: '700', fontSize: 14 }}>Back to Editing</Text>
             </TouchableOpacity>
-            <TouchableOpacity disabled={pbRunning || playingBack} onPress={playBack} style={{ backgroundColor: '#04756cff', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 20, opacity: pbRunning ? 0.4 : 1 }}>
+            <TouchableOpacity disabled={pbRunning || playingBack} onPress={pbHearSequence} style={{ backgroundColor: '#04756cff', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 20, opacity: pbRunning ? 0.4 : 1 }}>
               <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 14 }}>▶ Hear Sequence</Text>
             </TouchableOpacity>
           </View>
