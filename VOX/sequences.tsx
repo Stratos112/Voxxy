@@ -253,7 +253,7 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
   }, [sequence]);
 
   const PB_BOX_W = W - CAB_MARGIN * 2;
-  const PB_BOX_H = Math.max(120, Math.round(H * 0.5));
+  const PB_BOX_H = Math.max(120, Math.round(H * 0.55));
   const PB_BAR_LEFT = 14;
   const PB_BAR_RIGHT = PB_BOX_W - 14;
   const PB_BAR_WIDTH = PB_BAR_RIGHT - PB_BAR_LEFT;
@@ -506,16 +506,22 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
         </View>
 
         {/* Controls */}
-        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 2, paddingHorizontal: CAB_MARGIN }}>
-          <TouchableOpacity onPress={handleBackToEditing} style={{ backgroundColor: '#3a1a1a', borderWidth: 1, borderColor: '#ff4444', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 20 }}>
-            <Text style={{ color: '#ff4444', fontWeight: '700', fontSize: 14 }}>Back to Editing</Text>
-          </TouchableOpacity>
-          <TouchableOpacity disabled={pbRunning || playingBack} onPress={playBack} style={{ backgroundColor: '#04756cff', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 20, opacity: pbRunning ? 0.4 : 1 }}>
-            <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 14 }}>▶ Hear Sequence</Text>
-          </TouchableOpacity>
-          <TouchableOpacity disabled={pbRunning} onPress={pbStart} style={{ backgroundColor: '#2cf7baff', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 20, opacity: pbRunning ? 0.4 : 1 }}>
+        <View style={{ marginTop: 2, paddingHorizontal: CAB_MARGIN }}>
+          <TouchableOpacity
+            disabled={pbRunning}
+            onPress={pbStart}
+            style={{ backgroundColor: '#2cf7baff', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 20, opacity: pbRunning ? 0.4 : 1, alignSelf: 'center' }}
+          >
             <Text style={{ color: '#000000', fontWeight: '700', fontSize: 14 }}>{pbDone ? 'Try Again' : pbRunning ? 'Listening…' : 'Start'}</Text>
           </TouchableOpacity>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 10 }}>
+            <TouchableOpacity onPress={handleBackToEditing} style={{ backgroundColor: '#3a1a1a', borderWidth: 1, borderColor: '#ff4444', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 20 }}>
+              <Text style={{ color: '#ff4444', fontWeight: '700', fontSize: 14 }}>Back to Editing</Text>
+            </TouchableOpacity>
+            <TouchableOpacity disabled={pbRunning || playingBack} onPress={playBack} style={{ backgroundColor: '#04756cff', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 20, opacity: pbRunning ? 0.4 : 1 }}>
+              <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 14 }}>▶ Hear Sequence</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );
