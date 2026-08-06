@@ -176,19 +176,19 @@ const App = () => {
           <Text style={styles.titleText}>Voxxy</Text>
 
           {/* The buttons for handle changing screens*/}
-          <TouchableOpacity style={styles.button} onPress={handleSetRangePress}>
+          <TouchableOpacity style={[styles.button, { marginVertical: 5, paddingVertical: 8 }]} onPress={handleSetRangePress}>
             <Text style={styles.buttonText}>Range Expansion</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.button} onPress={handlePitchMatchPress}>
+          <TouchableOpacity style={[styles.button, { marginVertical: 5, paddingVertical: 8 }]} onPress={handlePitchMatchPress}>
             <Text style={styles.buttonText}>Pitch Match</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.button} onPress={handleIntervalsPress}>
+          <TouchableOpacity style={[styles.button, { marginVertical: 5, paddingVertical: 8 }]} onPress={handleIntervalsPress}>
             <Text style={styles.buttonText}>Interval Training</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.button} onPress={handleIntervalSingingPress}>
+          <TouchableOpacity style={[styles.button, { marginVertical: 5, paddingVertical: 8 }]} onPress={handleIntervalSingingPress}>
             <Text style={styles.buttonText}>Interval Singing</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.button} onPress={handleSequencePress}>
+          <TouchableOpacity style={[styles.button, { marginVertical: 5, paddingVertical: 8 }]} onPress={handleSequencePress}>
             <Text style={styles.buttonText}>Sequences</Text>
           </TouchableOpacity>
         </View>

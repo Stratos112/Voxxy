@@ -294,27 +294,36 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
       </ScrollView>
 
       {/* Controls */}
-      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 10, marginTop: 14, paddingHorizontal: CAB_MARGIN }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 10, paddingHorizontal: CAB_MARGIN }}>
         <TouchableOpacity
           disabled={sequence.length === 0}
           onPress={clearSequence}
-          style={[styles.button, { width: undefined, flex: 1, opacity: sequence.length === 0 ? 0.4 : 1, backgroundColor: '#3a1a1a', borderWidth: 1, borderColor: '#ff4444' }]}
+          style={{
+            backgroundColor: '#3a1a1a', borderWidth: 1, borderColor: '#ff4444', borderRadius: 8,
+            paddingVertical: 10, paddingHorizontal: 20, opacity: sequence.length === 0 ? 0.4 : 1,
+          }}
         >
-          <Text style={{ color: '#ff4444', fontWeight: '700' }}>Clear</Text>
+          <Text style={{ color: '#ff4444', fontWeight: '700', fontSize: 14 }}>Clear</Text>
         </TouchableOpacity>
         <TouchableOpacity
           disabled={sequence.length === 0 || playingBack}
           onPress={playBack}
-          style={[styles.button, { width: undefined, flex: 1, opacity: sequence.length === 0 ? 0.4 : 1 }]}
+          style={{
+            backgroundColor: '#04756cff', borderRadius: 8,
+            paddingVertical: 10, paddingHorizontal: 20, opacity: sequence.length === 0 ? 0.4 : 1,
+          }}
         >
-          <Text style={styles.buttonText}>▶ Play Back</Text>
+          <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 14 }}>▶ Play Back</Text>
         </TouchableOpacity>
         <TouchableOpacity
           disabled={sequence.length === 0}
           onPress={handleContinue}
-          style={[styles.primaryButton, { width: undefined, flex: 1, margin: 0, opacity: sequence.length === 0 ? 0.4 : 1 }]}
+          style={{
+            backgroundColor: '#2cf7baff', borderRadius: 8,
+            paddingVertical: 10, paddingHorizontal: 20, opacity: sequence.length === 0 ? 0.4 : 1,
+          }}
         >
-          <Text style={styles.backButtonText}>Continue</Text>
+          <Text style={{ color: '#000000', fontWeight: '700', fontSize: 14 }}>Continue</Text>
         </TouchableOpacity>
       </View>
     </View>
