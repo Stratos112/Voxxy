@@ -81,6 +81,7 @@ type Phase = 'record' | 'perform';
 const PB_NOTE_MS = 1000;
 const PB_GRID_MARGIN = 10;
 const PB_MAX_TAIL = 200;
+const PB_NUM_PARTICLES = 10;
 const PB_BANDS = [
   { min: 99, color: '#b8f0ff' },
   { min: 96, color: '#0f854c' },
@@ -140,8 +141,19 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
   const pbDotCounterRef = useRef(0);
   const pbActiveRef = useRef(false);
 
+  // Perfect-hit glow + particle burst
+  const pbGlowAnim = useRef(new Animated.Value(0)).current;
+  const pbLastPerfectFireRef = useRef(0);
+  const [pbPerfectPos, setPbPerfectPos] = useState({ x: -100, y: -100 });
+  const pbParticles = useRef(
+    Array.from({ length: PB_NUM_PARTICLES }, () => ({
+      tx: new Animated.Value(0),
+      ty: new Animated.Value(0),
+      op: new Animated.Value(0),
+    }))
+  ).current;
+
   useEffect(() => {
-    Orientation.lockToLandscape();
     const init = async () => {
       await Pitches.setupPlayer();
       const profile = new Profile();
@@ -156,6 +168,15 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
       pbScoreX.stopAnimation();
     };
   }, []);
+
+  // Recording is landscape (full keyboard); performing is portrait, like Interval Singing
+  useEffect(() => {
+    if (phase === 'record') {
+      Orientation.lockToLandscape();
+    } else {
+      Orientation.lockToPortrait();
+    }
+  }, [phase]);
 
   useEffect(() => {
     const sub = pbScoreX.addListener(({ value }) => { pbSquareLeftRef.current = value; });
@@ -294,6 +315,26 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
           color = pbBandColor(score);
           pbNoteSumsRef.current[noteIdx] += score;
           pbNoteCountsRef.current[noteIdx] += 1;
+
+          const nowMs = Date.now();
+          if (score >= 99 && nowMs - pbLastPerfectFireRef.current > 700) {
+            pbLastPerfectFireRef.current = nowMs;
+            const cx = pbSquareLeftRef.current;
+            const cy = pbFreqToY(value.frequency, pbRange.lo, pbRange.hi, PB_BOX_H);
+            setPbPerfectPos({ x: cx, y: cy });
+            pbGlowAnim.setValue(0.18);
+            Animated.timing(pbGlowAnim, { toValue: 0, duration: 600, useNativeDriver: true }).start();
+            pbParticles.forEach((p, i) => {
+              const angle = (i / PB_NUM_PARTICLES) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+              const dist = 30 + Math.random() * 50;
+              p.tx.setValue(0); p.ty.setValue(0); p.op.setValue(1);
+              Animated.parallel([
+                Animated.timing(p.tx, { toValue: Math.cos(angle) * dist, duration: 650, useNativeDriver: true }),
+                Animated.timing(p.ty, { toValue: Math.sin(angle) * dist, duration: 650, useNativeDriver: true }),
+                Animated.timing(p.op, { toValue: 0,                      duration: 650, useNativeDriver: true }),
+              ]).start();
+            });
+          }
         }
         setPbActiveNoteIdx(noteIdx);
         if (pbSquareLeftRef.current <= PB_BAR_RIGHT) {
@@ -318,8 +359,6 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
       }
     };
   }, [pbRunning, sequence, pbRange, PB_BAR_RIGHT, PB_BOX_H]);
-
-  const pbActiveKey = pbActiveNoteIdx >= 0 && sequence[pbActiveNoteIdx] ? [pitchToKey(sequence[pbActiveNoteIdx])] : [];
 
   const numOctaves = Math.max(displayOctaves.length, 1);
   const availableW = W - CAB_MARGIN * 2;
@@ -358,8 +397,12 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
     </View>
   ) : null;
 
+  const safeTop = (StatusBar.currentHeight ?? 24) + 10;
   const header = (
-    <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8 }}>
+    <View style={{
+      flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14,
+      paddingTop: phase === 'perform' ? safeTop : 12, paddingBottom: phase === 'perform' ? 12 : 8,
+    }}>
       <TouchableOpacity
         onPress={handleBack}
         style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: '#04756cff', justifyContent: 'center', alignItems: 'center', elevation: 8 }}
@@ -379,7 +422,6 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
   if (phase === 'perform') {
     return (
       <View style={styles.sequenceContainer}>
-        <StatusBar hidden />
         {header}
         <TutorialModal visible={showTutorial} title="Sequences" lines={TUTORIAL_LINES} onClose={() => setShowTutorial(false)} />
 
@@ -424,21 +466,34 @@ const SequenceScreen: React.FC<SequenceScreenProps> = ({ onBack }) => {
           {pbPitchLine.map(item => (
             <View key={item.born} style={[styles.pitchTail, { top: item.top, left: item.left, backgroundColor: item.color }]} />
           ))}
-        </View>
 
-        {/* Mini cabinet + keyboard — highlights the note currently being scored */}
-        <View style={{ marginTop: 8, marginHorizontal: CAB_MARGIN, position: 'relative', width: cabinetW, height: cabinetH }}>
-          <Image source={require('../static/piano/cabinet.png')} style={{ width: cabinetW, height: cabinetH }} resizeMode="stretch" />
-          <View style={{ position: 'absolute', left: keyLeft, top: keyTop, width: pianoWidth }}>
-            <Piano pressedKeys={pbActiveKey} octaves={displayOctaves} />
-          </View>
+          {/* Perfect-hit glow */}
+          <Animated.View
+            pointerEvents="none"
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#b8f0ff', opacity: pbGlowAnim }}
+          />
+
+          {/* Particles */}
+          {pbParticles.map((p, i) => (
+            <Animated.View
+              key={`pbp${i}`}
+              pointerEvents="none"
+              style={{
+                position: 'absolute', width: 4, height: 4, borderRadius: 2,
+                backgroundColor: '#b8f0ff',
+                top: pbPerfectPos.y - 2, left: pbPerfectPos.x - 2,
+                opacity: p.op,
+                transform: [{ translateX: p.tx }, { translateY: p.ty }],
+              }}
+            />
+          ))}
         </View>
 
         {/* Score */}
-        <View style={{ alignItems: 'center', paddingTop: 6, minHeight: 44 }}>
+        <View style={{ alignItems: 'center', paddingTop: 10, minHeight: 44 }}>
           {pbDone ? (
             <>
-              <Text style={{ fontSize: 30, fontWeight: '800', color: pbBandColor(pbOverallScore), letterSpacing: -1 }}>
+              <Text style={{ fontSize: 30, fontWeight: '800', color: '#ffffff', letterSpacing: -1 }}>
                 {pbOverallScore}%
               </Text>
               <Text style={{ fontSize: 11, fontWeight: '700', color: pbBandColor(pbOverallScore), letterSpacing: 3, opacity: 0.85 }}>
